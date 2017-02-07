@@ -1,0 +1,8 @@
+{
+    "SALES_MGMT": {
+        "AVAILABLE": "Verfügbar",
+        "ASSIGNED": "Zugewiesen",
+        "REJECT": "Zurückweisen",
+        "DONE": "Fertig"
+    }
+}

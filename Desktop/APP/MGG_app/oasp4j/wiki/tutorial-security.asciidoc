@@ -1,0 +1,100 @@
+:toc:
+toc::[]
+
+= Securing the application
+
+== CORS filter
+
+Cross-origin resource sharing (CORS) is a mechanism that allows restricted resources on a web page to be requested from another domain outside the domain from which the resource originated.
+
+AJAX (XMLHttpRequest) requests have been limited to accessing the same domain as the parent web page (as per the same-origin security policy), so "Cross-domain" AJAX requests are forbidden by default because of their ability to perform advanced requests that introduce many security issues.
+
+So to manage and solve that in OASP... TODO
+
+== CSRF filter
+
+Cross-Site Request Forgery (CSRF) is an attack that forces an end user to execute unwanted actions on a web application in which they're currently authenticated.
+
+In https://www.owasp.org/index.php/Main_Page[OWASP] (Open Web Application Security Project) they talk about this vulnerability and they have written a guide to prevent CSRF attacks (https://www.owasp.org/index.php/CSRF_Prevention_Cheat_Sheet[CSRF Prevention]).
+
+OASP uses the synchronizer token pattern to avoid this problem. This solution is to ensure that each request requires, in addition to our session cookie, a randomly generated token as an HTTP parameter. When a request is submitted, the server must look up the expected value for the parameter and compare it against the actual value in the request. If the values do not match, the request should fail.
+
+OASP has extended the Csrf Spring filter and has applied it to REST request, by OASP convention, the request to the path `/services/rest/**`.
+This filter is active by default, but it can be disabled changing the value of the system property `CsrfDisabled`.
+
+OASP also provides a REST service that allow to retrieve the CSRF token in the URL: `services/rest/security/v1/csrftoken/`
+
+At this point we have resolved the issue in the server side but we have to manage the token in the client side. This is responsability for the client side developers so we should retrive the CSRF token after the login and then, we should send the token in every request to the server.
+
+== Securing methods
+
+OASP focus on role-based authorization to cope with authorization for executing use case of an application. OASP use the JSR250 annotations, mainly @RolesAllowed, for authorizing method calls against the permissions defined in the annotation body. This has to be done for each use-case method in logic layer
+This is an example of how to annotate the methods with RolesAllowed:
+
+[source,java]
+----
+
+public class UcFindTableImpl extends AbstractTableUc implements UcFindTable {
+
+  /** Logger instance. */
+  private static final Logger LOG = LoggerFactory.getLogger(UcFindTableImpl.class);
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  @RolesAllowed(PermissionConstants.FIND_TABLE)
+  public TableEto findTable(Long id) {
+    ...
+  }
+
+}
+
+public class UcManageTableImpl extends AbstractTableUc implements UcManageTable {
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  @RolesAllowed(PermissionConstants.DELETE_TABLE)
+  public void deleteTable(Long tableId) {
+    ...
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  @RolesAllowed(PermissionConstants.SAVE_TABLE)
+  public TableEto saveTable(@Valid TableEto table) {
+     ...
+  }
+}
+
+----
+
+We have defined the value of the annotation RolesAllowed as constants, so we need to create a constant class for this purpose. Continuing with the example, that is our constant class:
+
+[source,java]
+----
+
+package io.oasp.gastronomy.restaurant.general.common.api.constants;
+
+/**
+ * Contains constants for the keys of all
+ * {@link io.oasp.module.security.common.api.accesscontrol.AccessControlPermission}s.
+ *
+ */
+public abstract class PermissionConstants {
+
+  /** {@link io.oasp.module.security.common.api.accesscontrol.AccessControlPermission} to retrieve table. */
+  public static final String FIND_TABLE = "FindTable";
+
+  /** {@link io.oasp.module.security.common.api.accesscontrol.AccessControlPermission} to save table. */
+  public static final String SAVE_TABLE = "SaveTable";
+
+  /** {@link io.oasp.module.security.common.api.accesscontrol.AccessControlPermission} to remove table. */
+  public static final String DELETE_TABLE = "DeleteTable";
+}
+
+----

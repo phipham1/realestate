@@ -1,0 +1,21 @@
+:toc:
+toc::[]
+
+= Get Started
+
+== Start from scratch
+
+The easiest way to get started is the oasp4j-app-template. It is a maven archetype, generating the most important code and configurations needed by an application using the oasp4j.
+To use the archetype follow these steps:
+
+. Clone oasp4j-sample*
+. Go to the oasp4j-app-template directory*
+. Install the archetype +mvn install+*
+. See the link:http://books.sonatype.com/m2eclipse-book/reference/creating.html#creating-sect-m2e-create-archetype[m2e documentation] on how to generate the application within eclipse.
+** Use group ID +io.oasp.java+ and artifact ID +oasp4j-app-template+
+
+NOTE: *Steps 1 to 3 can be omitted once the oasp4j-app-template is published to a public repository.
+
+== Start with an example
+
+Clone the link:https://github.com/oasp/oasp4j-sample[oasp4j-example-application].

@@ -1,0 +1,8 @@
+= Preparing the environment
+
+== Pre-requisites
+
+Internet connection, filesystem access, git, proxy, java and maven versions, etc...
+
+== Prepare the workspace
+

@@ -1,0 +1,96 @@
+=== IDE Setup
+
+This Tutorial explains how to setup the development environment to work on and contribute to OASP4j with your Windows computer.
+
+We are using a pre-configured IDE oasp4j-ide for development. To get started follow these steps:
+
+. Get a Git client. For Windows use:
+* http://msysgit.github.io/ 
++
+Important: install with option +Use Git from the Windows Command Prompts+ but without Windows Explorer integration.
++
+image::https://raw.githubusercontent.com/schowalter0112/Prints-OASP4j-Tutorial/master/Git%20hub%20client/Use%20Git%20from%20the%20Windows%20Command%20Prompts.jpg[command]
+* Download TortoiseGit from https://code.google.com/p/tortoisegit/
++
+. Download the IDE
+* If you are a member of Capgemini: download https://coconet.capgemini.com/sf/go/projects.apps2_devon/frs.oasp4j_ide[oasp-ide package] or the higher integrated https://coconet.capgemini.com/sf/go/projects.apps2_devon/frs.devon_distribution[devon distribution] (for devon please find the setup guide within the devon-dist).
+* If you are not member of Capgemini: We cannot distribute the package. Please consult https://github.com/oasp/oasp4j-ide/wiki[oasp4j-ide] to setup and configure the IDE manually. If you need help, please get in touch.
+. Choose a project location for your project (e.g. +C:\projects\oasp+, referred to with +$projectLoc+ in this setup guides following steps). Avoid long paths and white spaces to prevent trouble. Extract the downloaded ZIP files via +Extract Here+ (e.g. using http://www.7-zip.org/[7-Zip]). Do not use the Windows native ZIP tool to extract as this is not working properly on long paths and filenames.
+. Create a file named +$projectLoc\variables-customized.bat+ in your project location with the following contents: 
++
+[source,bash]
+-----
+set SETTINGS_REL_PATH=oasp4j\oasp4j-ide\oasp4j-ide-settings\src\main\settings
+-----
++
+. Open +console.bat+ and check out the git repositories you need to work on into +$projectLoc\workspaces\main+. with the following commands:
++
+[source,bash]
+-----
+cd workspaces/main
+git clone --recursive https://github.com/oasp/oasp4j.git
+git clone https://github.com/oasp/oasp4js.git
+-----
++
+image::https://raw.githubusercontent.com/schowalter0112/Prints-OASP4j-Tutorial/master/Git%20hub%20client/console.bat.jpg[console]
++
+. Run the script +$projectLoc\update-all-workspaces.bat+.
++
+image::https://raw.githubusercontent.com/schowalter0112/Prints-OASP4j-Tutorial/master/Git%20hub%20client/update.jpg[update]
++
+Hint: You can use update-all-workspaces.bat whenever you created a new project folder in your workspaces folder to separate different project-workspaces. This update will create new Eclipse start batches allowing to run a number of Eclipse instances using different workspaces in parallel.  
++
+You should end up having a structure like this in +$projectLoc+
++
+image::https://raw.githubusercontent.com/schowalter0112/Prints-OASP4j-Tutorial/master/Git%20hub%20client/folder%20structure.jpg[folder structure]
++
+Do another check whether there are files in folder +$projectLoc\workspaces\main\oasp4j\oasp4j-ide+!
+. Run the script +$projectLoc\eclipse-main.bat+ to start the Eclipse IDE.
+. *In Eclipse* select +File > Import > Maven > and Import existing Maven Project+ and then choose the cloned projects from your workspace. Root Directory: $projectLoc\workspaces\main. You can also click the Browse button and select the folder structure. (If there is a exception: Auto share git projects (Waiting) - choose Run in Background)
+
+. *Execute* the application by starting the ´io.oasp.gastronomy.restaurant.SpringBootApp´. Select the class and click the right mouse button. In the context menu select the entry 'Run as => Java Application' (or 'Debug as ...'). The application starts up and creates log entries in the Eclipse Console Tab.
++
+image::images/eclipse-run-as.png[width="813", high="390", align="center"]
++
+Once started, the OASP server applications runs on http://localhost:8081 with /oasp4j-sample-server/ as _context-root_. Access Server on base url: http://localhost:8081/oasp4j-sample-server[http://localhost:8081/oasp4j-sample-server], login with waiter/waiter and have a look at the services list provided.
+
+. If you want to properly test the example application you might want to build the OASP4js-client as follows: 
+.. Run +console.bat+ 
+.. Ensure you have a +git+ client on your path:
++
+[source,cmd]
+-----
+git --help
+-----
++
+If you get an error instead of the git help output, please redo step 1.
+.. Now call the following commands:
++
+[source,cmd]
+-----
+cd workspaces/main/oasp4js/
+npm install -g gulp
+npm install -g bower
+npm install
+cd java
+mvn install
+-----
+If [INFO] BUILD SUCCESS -> next step
++
+.. You can then extract the client from +oasp4js/java/target/oasp4js-sample-*-web.zip+ into +oasp4j/oasp4j-samples/oaps4j-sample-server/src/main/webapp/jsclient+. You may have to create the folder `jsclient` by yourself. Restart your tomcat and open http://localhost:8081/oasp4j-sample-server/ or for simpler development run both tomcat and a grunt-server as overlay via:
++
+[source,cmd]
+-----
+cd workspaces/main/oasp4js
+gulp serve
+-----
++
+A new tab in your webbrowser should open and you can try to sign in:
++
+image::https://raw.githubusercontent.com/schowalter0112/Prints-OASP4j-Tutorial/master/Git%20hub%20client/sign%20in1.jpg[sign in1]
++
+Test - User Name: waiter, Password: waiter. (Exception: If "Authentication failed. Please try again!" -> try to restart Tomcat in Eclipse or try to click the right button on Tomcat -> Clean... or Clean Tomcat Work Directory)
++
+You should end up at this page:
++
+image::https://github.com/schowalter0112/Prints-OASP4j-Tutorial/blob/master/Git%20hub%20client/Sign%20in.jpg?raw=true[Output][sign in ]

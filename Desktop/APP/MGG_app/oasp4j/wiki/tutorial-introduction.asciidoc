@@ -1,0 +1,11 @@
+= Introduction
+
+This is an step by step tutorial for starting an OASP server application from setting up the environment to packaging for production.
+
+The tutorial starts by setting up the programmer environment with the aid of the OASP-IDE project and verifies everything is correct by running the sample restaurant application of the OASP project.
+
+Afterwards a new blank application is created by using the provided archetypes and all generated files are reviewed to explain what OASP is providing.
+
+A classical CRUD use case is developed for creating, retrieving updating and deleting an entity. With this entity we introduce cross cutting concerns such as exception handling, validation and securing the access from the web.
+
+Finally the sample will be ready for deployment to a web server so we will package it on a WAR (or EAR) file.

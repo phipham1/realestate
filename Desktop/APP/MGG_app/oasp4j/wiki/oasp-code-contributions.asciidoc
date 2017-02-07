@@ -1,0 +1,29 @@
+:toc: macro
+toc::[]
+
+= Code contribution
+
+We are looking forward to your contribution to OASP4J. This page describes the few conventions to follow. Please note that this is an open and international project and all content has to be in (American) English language.
+
+For contributions to the code please consider:
+
+* We are working issue-based so check if there is already an issue in our tracker for the task you want to work on or create a new issue for it.
+* In case of more complex issues please get involved with the community and ensure that there is a common understanding of what and how to do it. You do not want to invest into something that will later be rejected by the community.
+* Before you get started ensure that you comment the issue accordingly and you are the person assigned to the issue. If there is already someone else assigned get in contact with him if you still want to contribute to the same issue. You do not want to invest into something that is already done by someone else.
+* Create a https://help.github.com/articles/fork-a-repo/[fork] of the repository on github to your private github space.
+* Checkout this fork and do your modifications.
+* Ensure that we stick to our link:coding-conventions[].
+* Check in features or fixes as individual commits associated with an link:../issues[issue] using the commit message format:
++
+[source]
+#<issueId>: <describe your change>
++
+Then github will automatically link the commit in the issue. In case you worked on an issue from a different repository (e.g. change in +oasp4j-sample+ due to issue in +oasp4j+) we use this commit message format:
+[source]
+oasp/<repository>#<issueId>: <describe your change>
++
+So as an example:
+[source]
+oasp/oasp4j#1: added REST service for tablemanagement
+* If you completed your feature (bugfix, improvement, etc.) use a https://help.github.com/articles/using-pull-requests/[pull request] to give it back to the community.
+* see also the link:oasp-documentation[documentation] guidelines.

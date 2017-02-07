@@ -1,0 +1,8 @@
+io\oasp\module\test\common\api\category\CategorySubsystemTest.class
+io\oasp\module\test\common\base\ComponentTest.class
+io\oasp\module\test\common\base\ModuleTest.class
+io\oasp\module\test\common\api\category\CategorySystemTest.class
+io\oasp\module\test\common\base\SystemTest.class
+io\oasp\module\test\common\base\SubsystemTest.class
+io\oasp\module\test\common\api\category\CategoryModuleTest.class
+io\oasp\module\test\common\api\category\CategoryComponentTest.class

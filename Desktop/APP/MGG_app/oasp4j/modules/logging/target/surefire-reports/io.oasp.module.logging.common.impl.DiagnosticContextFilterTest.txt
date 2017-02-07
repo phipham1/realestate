@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: io.oasp.module.logging.common.impl.DiagnosticContextFilterTest
+-------------------------------------------------------------------------------
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.799 sec - in io.oasp.module.logging.common.impl.DiagnosticContextFilterTest

@@ -1,0 +1,6 @@
+io\oasp\module\basic\common\api\to\AbstractCto.class
+io\oasp\module\basic\configuration\SpringProfileConstants.class
+io\oasp\module\basic\common\api\to\AbstractEto.class
+io\oasp\module\basic\common\api\to\AbstractTo.class
+io\oasp\module\basic\common\api\reflect\OaspPackage.class
+io\oasp\module\basic\common\api\to\AbstractEto$PersistentEntityAccess.class

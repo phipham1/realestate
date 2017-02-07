@@ -1,0 +1,19 @@
+{
+    "paths": {
+        "tmp": ".tmp",
+        "dist": "dist",
+        "src": "app",
+        "testSrc": "app",
+        "testOutput": "test",
+        "docs": "docs"
+    },
+    "styles": {
+        "type": "less",
+        "output": "css/oasp.css"
+    },
+    "mainModule": "main",
+    "proxy": {
+        "baseUrl": "http://localhost:8081",
+        "context": "/oasp4j-sample-server"
+    }
+}

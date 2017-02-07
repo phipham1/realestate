@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: io.oasp.module.jpa.dataaccess.base.AbstractGenericDaoTest
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.976 sec - in io.oasp.module.jpa.dataaccess.base.AbstractGenericDaoTest

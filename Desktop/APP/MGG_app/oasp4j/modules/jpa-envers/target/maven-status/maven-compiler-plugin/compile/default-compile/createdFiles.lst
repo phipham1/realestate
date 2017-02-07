@@ -1,0 +1,9 @@
+io\oasp\module\jpa\dataaccess\api\RevisionedMasterDataDao.class
+io\oasp\module\jpa\dataaccess\base\AbstractGenericRevisionedDao.class
+io\oasp\module\jpa\dataaccess\api\AdvancedRevisionEntity.class
+io\oasp\module\jpa\dataaccess\api\RevisionedDao.class
+io\oasp\module\jpa\dataaccess\api\GenericRevisionedDao.class
+io\oasp\module\jpa\dataaccess\api\RevisionMetadata.class
+io\oasp\module\jpa\dataaccess\api\AdvancedRevisionListener.class
+io\oasp\module\jpa\dataaccess\base\AbstractRevisionedDao.class
+io\oasp\module\jpa\dataaccess\impl\LazyRevisionMetadata.class

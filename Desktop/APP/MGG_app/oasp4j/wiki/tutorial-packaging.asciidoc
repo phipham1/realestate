@@ -1,0 +1,27 @@
+= Packaging the application
+
+The application packaging is based on maven package, so you must execute the command 
+
+[source]
+---- 
+mvn package
+----
+
+Based on which choose you done on archetype execution, the project will create war or ear packaging in the apropiate project. 
+
+== Packaging as WAR file
+
+The war packaging is the default packaging output and all oasp projects create this packaging. 
+
+The war packaging will be created in the oasp server project (called ${artifactId}-server, where ${artifactId} is your maven project artifactId)  and will include all web files, including client ones.
+
+This output allow you to deploy the application in all application servers and servlet containers, but if you use an application server, you would choose ear packaging to allow further configuration and exploits all enterprise advantages. 
+
+
+== Packaging as EAR file
+
+This packaging is the preferred one when you will deploy your application in an application server and you would like to use all power of enterprise applications (optimizing shared libraries packaging, using JCA, JTA transactions supported by server container, EJBs,...). 
+
+To find the ear package you will navigate to the ear project you created with the archetype throw the earProjectName property. 
+
+This project will generate an ear containing the war project and you could create specific application.xml file in order to use specific server features (like Weblogic multi version deployment) or will allow you to add more application modules (like another Web modules, EJBs,...). 

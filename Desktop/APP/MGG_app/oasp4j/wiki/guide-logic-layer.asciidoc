@@ -1,0 +1,91 @@
+:toc: macro
+toc::[]
+
+= Logic Layer
+
+The logic layer is the heart of the application and contains the main business logic.
+According to our link:architecture#business-architecture[business architecture] we divide an application into _business components_. The _component part_ assigned to the logic layer contains the functional use-cases the business component is responsible for. For further understanding consult the link:architecture#application-architecture[application architecture].
+
+== Component Interface
+A component may consist of several xref:use-case[Use Cases] but is only accessed by the next higher layer or other components through one interface, i.e. by using one Spring bean. 
+
+If the implementation of the component interface gets too complex it is recommended to further sub-divide it in separate use-case-interfaces to be aggregated in the main component interface. This suits for better maintainability.
+			
+First we create an interface  that contains the method(s) with the business operation documented with JavaDoc. The API of the use cases has to be business oriented. This means that all parameters and return types of a use case method have to be business link:guide-transferobject[transfer-objects], link:guide-datatype[datatypes] (+String+, +Integer+, +MyCustomerNumber+, etc.), or collections of these. The API may only access objects from other business components in the (transitive) link:architecture#business-architecture[dependencies] of the declaring business component.
+Here is an example of a use case interface:
+[source,java]
+----
+public interface StaffManagement {
+
+  StaffMemberEto getStaffMemberByLogin(String login);
+
+  StaffMemberEto getStaffMember(Long id);
+  
+  ...
+}
+----
+
+== Component Implementation
+
+The implementation of the use case typically needs access to the persistent data. This is done by link:guide-dependency-injection[injecting] the corresponding link:guide-dataaccess-layer#data-access-object[DAO]. For the link:architecture#architecture-principles[principle _data sovereignty_] only DAOs of the same business component may be accessed directly from the use case. For accessing data from other components the use case has to use the corresponding xref:component-interface[component interface]. Further it shall not expose persistent entities from the persistence layer and has to map them to link:guide-transferobject[transfer objects].
+
+Within a use-case implementation, entities are mapped via a +BeanMapper+ to link:guide-dataaccess-layer#entity[persistent entities]. Let's take a quick look at some of the StaffManagement methods: 
+[source,java]
+----
+package io.oasp.gastronomy.restaurant.staffmanagement.logic.impl;
+
+public class StaffManagementImpl extends AbstractComponentFacade implements StaffManagement {
+
+  public StaffMemberEto getStaffMemberByLogin(String login) {
+    StaffMemberEntity staffMember = getStaffMemberDao().searchByLogin(login);
+    return getBeanMapper().map(staffMember, StaffMemberEto.class);
+  }
+
+  public StaffMemberEto getStaffMember(Login id) {
+    StaffMemberEntity staffMember = getStaffMemberDao().find(id);
+    return getBeanMapper().map(staffMember, StaffMemberEto.class);
+  }
+}
+----
+
+As you can see, provided entities are mapped to corresponding business objects (here +StaffMemberEto.class+). These business objects are simple POJOs (Plain Old Java Objects) and stored in: +
++<package-name-prefix>.<domain>.<application-name>.<component>.api+. +
+The mapping process of these entities and the declaration of the +AbstractLayerImpl+ class are described xref:passing-parameters-among-components[here]. For every business object there has to be a mapping entry in the +src/main/resources/config/app/common/dozer-mapping.xml+ file. For example, the mapping entry of a +TableEto+ to a +Table+ looks like this:
+[source,html]
+----
+  <mapping>
+    <class-a>io.oasp.gastronomy.restaurant.tablemanagement.logic.api.TableEto</class-a>
+    <class-b>io.oasp.gastronomy.restaurant.tablemanagement.persistence.api.entity.Table</class-b>
+  </mapping>
+----
+
+Below, a class diagram illustrating the pattern is shown (here: the ``StaffManagement`` business component):
+
+image::images/guide-logic-layer.png["logic layer component pattern", width="450"]
+
+As the picture above illustrates, the necessary link:guide-dataaccess-layer#data-access-object[DAO] entity to access the database is provided by an abstract class. Use Cases that need access to this DAO entity, have to extend that abstract class. Needed dependencies (in this case the +staffMemberDao+) are resolved by Spring, see xref:component-interface[here]. For the validation (e.g. to check if all needed attributes of the +StaffMember+ have been set) either Java code or http://www.jboss.org/drools/[Drools], a business rule management system, can be used.
+
+ 
+== Passing Parameters Among Components
+link:guide-dataaccess-layer#entity[Entities] have to be detached for the reasons of data sovereignty, if entities are passed among components or link:architecture#technical-architecture[layers] (to service layer). For further details see link:guide-beanmapping[Bean-Mapping]. Therefore we are using link:guide-transferobject[transfer-objects] (TO) with the same attributes as the entity that is persisted. The packages are: +
+
+[cols="1,3"]
+|===
+|Persistence Entities| <package-name-prefix>.<domain>.<application-name>.<component>.persistence.api.entity 
+|Transfer Objects(TOs)| <package-name-prefix>.<domain>.<application-name>.<component>.logic.api
+|===
+
+This mapping is a simple copy process. So changes out of the scope of the owning component to any TO do not directly affect the persistent entity.
+
+== Security
+The logic layer is the heart of the application. It is also responsible for authorization and hence security is important here.
+
+=== Direct Object References
+A security threat are https://www.owasp.org/index.php/Top_10_2013-A4-Insecure_Direct_Object_References[Insecure Direct Object References]. This simply gives you two options:
+
+* avoid direct object references at all
+* ensure that direct object references are secure
+
+Especially when using REST, direct object references via technical IDs are common sense. This implies that you have a proper xref:authorization[] in place. This is especially tricky when your authorization does not only rely on the type of the data and according static permissions but also on the data itself. Vulnerabilities for this threat can easily happen by design flaws and inadvertence. Here an example from our sample application: 
+
+We have a generic use-case to manage BLOBs. In the first place it makes sense to write a generic REST service to laod and save these BLOBs. However, the permission to read or even update such BLOB depend on the business object hosting the BLOB. Therefore such a generic REST service would open the door for this OWASP A4 vulnerability. To solve this in a secure way you need individual services for each hosting business object to manage the linked BLOB. There you have to check permissions based on the parent business object. In this example the ID of the BLOB would be the direct object reference and the ID of the business object (and a BLOB property indicator) would be the indirect object reference.

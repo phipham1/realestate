@@ -1,0 +1,74 @@
+:toc: macro
+toc::[]
+
+= Coding Conventions
+
+The code should follow general conventions for Java (see http://www.oracle.com/technetwork/java/namingconventions-139351.html[Oracle Naming Conventions], http://google-styleguide.googlecode.com/svn/trunk/javaguide.html[Google Java Style], etc.).We consider this as common sense and provide configurations for http://www.sonarqube.org/[SonarQube] and related tools such as http://checkstyle.sourceforge.net/[Checkstyle] instead of repeating this here.
+
+== Naming
+Besides general Java naming conventions, we follow the additional rules listed here explicitly:
+
+* Always use short but speaking names (for types, methods, fields, parameters, variables, constants, etc.).
+* Avoid having duplicate type names. The name of a class, interface, enum or annoation should be unique within your project unless this is intentionally desired in a special and reasonable situation.
+* Avoid artificial naming constructs such as prefixes (+I*+) or suffixes (+*IF+) for interfaces.
+* Use CamlCase even for abbreviations (+XmlUtil+ instead of [line-through]+XMLUtil+)
+* Names of Generics should be easy to understand. Where suitable follow the common rule +E=Element+, +T=Type+, +K=Key+ but feel free to use longer names for more specific cases such as +ID+, +DTO+ or +ENTITY+. The capitalized naming helps to distinguish a generic type from a regular class.
+
+== Packages
+Java Packages are the most important element to structure your code. We use a strict packaging convention to map technical layers and business components (slices) to the code (See link:architecture#technical-architecture[technical architecture] for further details). By using the same names in documentation and code we create a strong link that gives orientation and makes it easy to find from business requirements, specifications or story tickets into the code and back. Further we can use tools such as http://www.sonarqube.org/[SonarQube] and http://www.hello2morrow.com/products/sonargraph[SonarGraph] to verify architectural rules.
+
+For an OASP based application we use the following Java-Package schema:
+[source]
+<basepackage>.<component>.<layer>.<scope>[.<detail>]*
+
+For an application as part of an IT application landscape we recommend to use the followng schema for +<basepackage>+:
+[source]
+<organization>.<domain>.<application>
+
+E.g. in our example application we find the DAO interfaces for the +salesmanagement+ component in the package +io.oasp.gastronomy.restaurant.salesmanagement.dataaccess.api.dao+
+
+.Segments of package schema
+[options="header"]
+|=============================================
+|*Segment*      | *Description* | *Example*
+|<organization>|Is the basic Java Package name-space of the organization owning the code following common Java Package conventions. Consists of multiple segments corresponding to the Internet domain of the organization. |+io.oasp+
+| <domain> | Is the business domain of the application. Especially important in large enterprises that have an large IT landscape with different domains. | +gastronomy+
+| <application> | The name of the application build in this project. | +restaurant+
+| <component> | The (business) component the code belongs to. It is defined by the business architecture and uses terms from the business domain. Use the implicit component +general+ for code not belonging to a specific component (foundation code).| +salesmanagement+
+| <layer> | The name of the technical layer (See link:architecture[technical architecture]) which is one of the predefined layers (+dataaccess+, +logic+, +service+, +batch+, +gui+, +client+) or +common+ for code not assigned to a technical layer (datatypes, cross-cutting concerns). | +dataaccess+
+| <scope> | The scope which is one of +api+ (official API to be used by other layers or components), +base+ (basic code to be reused by other implementations) and +impl+ (implementation that should never be imported from outside) | +api+
+| <detail> | Here you are free to further divide your code into sub-components and other concerns according to the size of your component part. | +dao+
+|=============================================
+Please note that for library modules where we use +io.oasp.module+ as +<basepackage>+ and the name of the module as +<component>+. E.g. the API of our +monitoring+ module can be found in the package +io.oasp.module.monitoring.common.api+.
+
+== Code Tasks
+Code spots that need some rework can be marked with the following tasks tags. These are already properly pre-configured in your development environment for auto completion and to view tasks you are responsible for. It is important to keep the number of code tasks low. Therefore every member of the team should be responsible for the overall code quality. So if you change a piece of code and hit a code task that you can resolve in a reliable way do this as part of your change and remove the according tag.
+
+=== TODO
+Used to mark a piece of code that is not yet complete (typically because it can not be completed due to a dependency on something that is not ready).
+
+[source,java]
+ // TODO <author> <description>
+
+A TODO tag is added by the author of the code who is also responsible for completing this task.
+
+=== FIXME
+[source,java]
+ // FIXME <author> <description>
+
+A FIXME tag is added by the author of the code or someone who found a bug he can not fix right now. The <author> who added the FIXME is also responsible for completing this task. This is very similar to a TODO but with a higher priority. FIXME tags indicate problems that should be resolved before a release is completed while TODO tags might have to stay for a longer time.
+
+=== REVIEW
+[source,java]
+ // REVIEW <responsible> (<reviewer>) <description>
+
+A REVIEW tag is added by a reviewer during a code review. Here the original author of the code is responsible to resolve the REVIEW tag and the reviewer is assigning this task to him. This is important for feedback and learning and has to be aligned with a review "process" where people talk to each other and get into discussion. In smaller or local teams a peer-review is preferable but this does not scale for large or even distributed teams.
+
+== Code-Documentation
+As a general goal the code should be easy to read and understand. Besides clear naming the documentation is important. We follow these rules:
+
+* APIs (especially component interfaces) are properly documented with JavaDoc.
+* JavaDoc shall provide actual value - we do not write JavaDoc to satisfy tools such as checkstyle but to express information not already available in the signature.
+* We make use of +{@link}+ tags in JavaDoc to make it more expressive.
+* JavaDoc of APIs describes how to use the type or method and not how the implementation internally works.
+* To document implementation details, we use code comments (e.g. +// we have to flush explicitly to ensure version is up-to-date+). This is only needed for complex logic.

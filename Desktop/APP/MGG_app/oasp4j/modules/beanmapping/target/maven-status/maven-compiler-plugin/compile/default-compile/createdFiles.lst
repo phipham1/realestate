@@ -1,0 +1,8 @@
+io\oasp\module\beanmapping\common\impl\IdentityConverter.class
+io\oasp\module\beanmapping\common\impl\orika\BeanMapperImplOrika.class
+io\oasp\module\beanmapping\common\base\AbstractBeanMapper.class
+io\oasp\module\beanmapping\common\impl\dozer\IdentityConverter.class
+io\oasp\module\beanmapping\common\impl\orika\CustomMapperEto.class
+io\oasp\module\beanmapping\common\impl\dozer\BeanMapperImplDozer.class
+io\oasp\module\beanmapping\common\api\BeanMapper.class
+io\oasp\module\beanmapping\common\impl\DozerBeanMapper.class

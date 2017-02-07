@@ -1,0 +1,1141 @@
+:toc:
+toc::[]
+
+= Creating a CRUD functionality for an entity
+
+In this tutorial we are going to create an entity for the application and provide services for Create, Read, Update and Delete instances of that entity.
+
+It is important to mention OASP packaging convention. OASP use a strict packaging convention to map technical layers and business components to the code. OASP use the following Java-Package schema:
+
+[source]
+<basepackage>.<component>.<layer>.<scope>[.<detail>]*
+
+In our example application we find the different classes in this packages:
+
+* Entity and DAO: +io.oasp.gastronomy.restaurant.tablemanagement.dataaccess.api[.<detail>]+
+
+* Logic: +io.oasp.gastronomy.restaurant.tablemanagement.logic[.<detail>]+
+
+* Services: +io.oasp.gastronomy.restaurant.tablemanagement.services[.<detail>]+
+
+For more information you can consult https://github.com/oasp/oasp4j/wiki/coding-conventions#packages[packaging OASP documentation]
+
+== Persitence provider configuration
+== Create the JPA entity
+We are going to create a `Table` entity. First, we are going to create the `Table` entity interface. This will be reused between all the objects involved with table on the different layers.
+
+[source,java]
+----
+package io.oasp.gastronomy.restaurant.tablemanagement.common.api;
+
+import io.oasp.gastronomy.restaurant.general.common.api.ApplicationEntity;
+import io.oasp.gastronomy.restaurant.tablemanagement.common.api.datatype.TableState;
+
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
+/**
+ * This is the interface for a table of the restaurant. 
+ */
+public interface Table extends ApplicationEntity {
+
+  /**
+   * @return the unique table number.
+   */
+  Long getNumber();
+
+  /**
+   * @param number is the new {@link #getNumber() number}.
+   */
+  void setNumber(Long number);
+
+  /**
+   * @return the current {@link TableState state} of this {@link Table}.
+   */
+  TableState getState();
+
+  /**
+   * @param state is the new {@link #getState() state}.
+   */
+  void setState(TableState state);
+
+  /**
+   * @return the ID of the waiter
+   */
+  Long getWaiterId();
+
+  /**
+   * Sets the field 'waiterId'.
+   *
+   * @param waiterId New value for waiterId
+   */
+  void setWaiterId(Long waiterId);
+
+}
+----
+
+As you can see, Table should extend `ApplicationEntity` class. This class provides the neccesary methods for a mutable entity (ID getter and setter basically).
+
+In this case, we also need a TableState class for our CRUD example:
+
+[source,java]
+----
+
+package io.oasp.gastronomy.restaurant.tablemanagement.common.api.datatype;
+
+/**
+ * Represents the state table.
+ */
+public enum TableState {
+  FREE,
+  RESERVED,
+  OCCUPIED;
+
+  /**
+   * @return ``true`` if {@link #FREE}, ``false`` otherwise.
+   */
+  public boolean isFree() {
+
+    return (this == FREE);
+  }
+
+  /**
+   * @return ``true`` if {@link #RESERVED}, ``false`` otherwise.
+   */
+  public boolean isReserved() {
+
+    return (this == RESERVED);
+  }
+
+  /**
+   * @return ``true`` if {@link #OCCUPIED}, ``false`` otherwise.
+   */
+  public boolean isOccupied() {
+
+    return (this == OCCUPIED);
+  }
+
+}
+
+----
+
+Finally, we should create the entity implementation:
+
+[source,java]
+----
+
+package io.oasp.gastronomy.restaurant.tablemanagement.dataaccess.api;
+
+import io.oasp.gastronomy.restaurant.general.dataaccess.api.ApplicationPersistenceEntity;
+import io.oasp.gastronomy.restaurant.tablemanagement.common.api.Table;
+import io.oasp.gastronomy.restaurant.tablemanagement.common.api.datatype.TableState;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+
+@Entity(name = "Table")
+@javax.persistence.Table(name = "RestaurantTable")
+public class TableEntity extends ApplicationPersistenceEntity implements Table {
+
+  private static final long serialVersionUID = 1L;
+
+  private Long number;
+
+  private Long waiterId;
+
+  private TableState state;
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  @Column(unique = true)
+  public Long getNumber() {
+
+    return this.number;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void setNumber(Long number) {
+
+    this.number = number;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  @Column(name = "waiter_id")
+  public Long getWaiterId() {
+
+    return this.waiterId;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void setWaiterId(Long waiterId) {
+
+    this.waiterId = waiterId;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public TableState getState() {
+
+    return this.state;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void setState(TableState state) {
+
+    this.state = state;
+  }
+
+}
+
+----
+
+=== Optimistic locking
+
+
+=== Validation
+
+You can read more about OASP validation in https://github.com/oasp-forge/oasp4j-wiki/wiki/guide-validation[OASP validation]
+
+For example, we are going to add a validation in TableEntity to validate number property to allow only values greater than 0.
+
+[source,java]
+----
+  
+  @Min(0)
+  @Column(unique = true)
+  public Long getNumber() {
+
+    return this.number;
+  }
+----
+
+== Creating persistence layer
+
+Data Acccess Objects (DAOs) are part of the persistence layer. They are responsible for a specific entity and should be named <entity>Dao[Impl]. The DAO offers the so called CRUD-functionalities (create, retrieve, update, delete) for the corresponding entity. Additionally a DAO may offer advanced operations such as search or locking methods.
+
+For each DAO there is an interface named <entity>Dao that defines the API. For CRUD support and common naming methods we derive it from the interface `io.oasp.module.jpa.persistence.api.dao.ApplicationDao`.
+
+.TableDao.java
+
+[source,java]
+----
+
+package io.oasp.gastronomy.restaurant.tablemanagement.dataaccess.api.dao;
+
+import io.oasp.gastronomy.restaurant.general.dataaccess.api.dao.ApplicationDao;
+import io.oasp.gastronomy.restaurant.tablemanagement.dataaccess.api.TableEntity;
+import io.oasp.module.jpa.dataaccess.api.MasterDataDao;
+
+import java.util.List;
+
+/**
+ * {@link ApplicationDao Data Access Object} for {@link TableEntity} entity.
+ *
+ */
+public interface TableDao extends ApplicationDao<tableentity>, MasterDataDao<tableentity> {
+
+  /**
+   * Returns a list of free restaurant tables.
+   *
+   * @return {@link List} of free restaurant {@link TableEntity}s
+   */
+  List<tableentity> getFreeTables();
+
+}
+
+----
+
+Implementing a DAO is quite simple. We should create a class named <entity>DaoImpl that extends ApplicationMasterDataDaoImpl class and implements our DAO interface. 
+
+This is the DAO implementation for our table sample:
+
+.TableDaoImpl.java
+
+[source,java]
+----
+
+package io.oasp.gastronomy.restaurant.tablemanagement.dataaccess.impl.dao;
+
+import io.oasp.gastronomy.restaurant.general.common.api.constants.NamedQueries;
+import io.oasp.gastronomy.restaurant.general.dataaccess.base.dao.ApplicationMasterDataDaoImpl;
+import io.oasp.gastronomy.restaurant.tablemanagement.dataaccess.api.TableEntity;
+import io.oasp.gastronomy.restaurant.tablemanagement.dataaccess.api.dao.TableDao;
+
+import java.util.List;
+
+import javax.inject.Named;
+import javax.persistence.Query;
+
+/**
+ * Implementation of {@link TableDao}.
+ *
+ */
+@Named
+public class TableDaoImpl extends ApplicationMasterDataDaoImpl<tableentity> implements TableDao {
+
+  /**
+   * The constructor.
+   */
+  public TableDaoImpl() {
+
+    super();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public Class<tableentity> getEntityClass() {
+
+    return TableEntity.class;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public List<tableentity> getFreeTables() {
+
+    Query query = getEntityManager().createNamedQuery(NamedQueries.GET_FREE_TABLES, TableEntity.class);
+    return query.getResultList();
+  }
+
+}
+
+----
+
+As you can see ApplicationMasterDataDaoImpl already implements the CRUD operations so you only have to implement the additional methods that you have declared in your <entity>Dao interface.
+
+=== Defining querys
+
+OASP advises to specify all queries in one mapping file called NamedQueries.xml. So we are going to create a query to get free tables that we have used in TableDaoImpl.
+
+.src/main/resources/config/app/dataaccess/NamedQueries.xml
+[source,xml]
+----
+
+<!--?xml version="1.0" encoding="UTF-8"?-->
+<entity-mappings version="1.0" xmlns="http://java.sun.com/xml/ns/persistence/orm" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemalocation="http://java.sun.com/xml/ns/persistence/orm http://java.sun.com/xml/ns/persistence/orm_1_0.xsd">
+
+  <named-query name="get.free.tables">
+    <query><!--[CDATA[SELECT t FROM Table t WHERE t.state = io.oasp.gastronomy.restaurant.tablemanagement.common.api.datatype.TableState.FREE]]--></query>
+  </named-query>
+
+</entity-mappings>
+
+----
+
+To avoid redundant occurrences of the query name we define the constants for each named query:
+
+.NamedQueries.java
+[source,java]
+----
+
+package io.oasp.gastronomy.restaurant.general.common.api.constants;
+
+/**
+ * Constants of the named queries defined in ``NamedQueries.xml``.
+ *
+ */
+public abstract class NamedQueries {
+
+  // put your query names from NamedQueries.xml as constants here
+  /** @see io.oasp.gastronomy.restaurant.tablemanagement.dataaccess.impl.dao.TableDaoImpl#getFreeTables() */
+  public static final String GET_FREE_TABLES = "get.free.tables";
+
+}
+
+----
+
+Note that changing the name of the java constant can be done easily with refactoring. Further you can trace where the query is used by searching the references of the constant.
+
+== Expose logic as services
+
+The logic layer is for internal use of an application. In order to access the functionality of the logic layer from other applications it should be exposed with a bridge layer called the service layer.
+
+This layer should be in charge of converting between Java objects to its serialized form and back. It also provide the means to publish to an endpoint and securize the access to certain users. Last but not less important it is responsible to wrap any error coming from the logic layer to a format that would be understood by the client of the service. 
+
+In OASP, we propose to divide the CRUD logic into different files to sepparate responsability:
+
+* An interface and an implementing class for CRUD read only methods, UCFind[XXX]. E.g. UCFindTable.
+
+* An interface and an implementing class fro CRUD write methods, UCManage[XXX]. E.g. UCManageTable.
+
+
+.UCFindTable.java
+
+[source,java]
+----
+
+package io.oasp.gastronomy.restaurant.tablemanagement.logic.api.usecase;
+
+import io.oasp.gastronomy.restaurant.tablemanagement.logic.api.to.TableEto;
+
+import java.util.List;
+
+/**
+ * Interface of UcFindTable to centralize documentation and signatures of methods.
+ *
+ */
+public interface UcFindTable {
+
+  /**
+   * Returns a restaurant table by its id 'id'.
+   *
+   * @param id The id 'id' of the restaurant table.
+   * @return The restaurant {@link TableEto} with id 'id'
+   */
+  TableEto findTable(Long id);
+
+  /**
+   * Returns a list of all existing restaurant tables.
+   *
+   * @return {@link List} of all existing restaurant {@link TableEto}s
+   */
+  List<tableeto> findAllTables();
+
+ /**
+   * Returns a list of all existing free restaurant tables.
+   *
+   * @return {@link List} of all existing free restaurant {@link TableEto}s
+   */
+  List<tableeto> findFreeTables();
+
+}
+
+----
+
+.UCFindTableImpl.java
+
+[source,java]
+----
+
+package io.oasp.gastronomy.restaurant.tablemanagement.logic.impl.usecase;
+
+import io.oasp.gastronomy.restaurant.general.common.api.constants.PermissionConstants;
+import io.oasp.gastronomy.restaurant.general.logic.api.UseCase;
+import io.oasp.gastronomy.restaurant.tablemanagement.dataaccess.api.TableEntity;
+import io.oasp.gastronomy.restaurant.tablemanagement.logic.api.to.TableEto;
+import io.oasp.gastronomy.restaurant.tablemanagement.logic.api.usecase.UcFindTable;
+import io.oasp.gastronomy.restaurant.tablemanagement.logic.base.usecase.AbstractTableUc;
+
+import java.util.List;
+
+import javax.annotation.security.RolesAllowed;
+import javax.inject.Named;
+
+/**
+ * Implementation of {@link UcFindTable}.
+ *
+ */
+@Named
+@UseCase
+public class UcFindTableImpl extends AbstractTableUc implements UcFindTable {
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  @RolesAllowed(PermissionConstants.FIND_TABLE)
+  public TableEto findTable(Long id) {
+
+    return getBeanMapper().map(getTableDao().findOne(id), TableEto.class);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  @RolesAllowed(PermissionConstants.FIND_TABLE)
+  public List<tableeto> findAllTables() {
+
+    List<tableentity> tables = getTableDao().findAll();
+    return getBeanMapper().mapList(tables, TableEto.class);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  @RolesAllowed(PermissionConstants.FIND_TABLE)
+  public List<tableeto> findFreeTables() {
+
+    List<tableentity> tables = getTableDao().getFreeTables();
+    return getBeanMapper().mapList(tables, TableEto.class);
+  }
+
+}
+
+----
+
+.UCManageTable.java
+
+[source,java]
+----
+
+package io.oasp.gastronomy.restaurant.tablemanagement.logic.api.usecase;
+
+import io.oasp.gastronomy.restaurant.tablemanagement.logic.api.to.TableEto;
+
+import javax.validation.Valid;
+
+/**
+ * Interface of UcManageTable to centralize documentation and signatures of methods.
+ *
+ */
+public interface UcManageTable {
+
+  /**
+   * Deletes a restaurant table from the database by its id 'id'.
+   *
+   * @param tableId Id of the restaurant table to delete
+   */
+  void deleteTable(Long tableId);
+
+  /**
+   * Creates a new restaurant table and store it in the database.
+   *
+   * @param table the {@link TableEto} to create.
+   * @return the new {@link TableEto} that has been saved with ID and version.
+   */
+  TableEto saveTable(@Valid TableEto table);
+
+}
+
+----
+
+.UCManageTableImpl.java
+
+[source,java]
+----
+
+package io.oasp.gastronomy.restaurant.tablemanagement.logic.impl.usecase;
+
+import io.oasp.gastronomy.restaurant.general.common.api.constants.PermissionConstants;
+import io.oasp.gastronomy.restaurant.general.common.api.exception.IllegalEntityStateException;
+import io.oasp.gastronomy.restaurant.general.logic.api.UseCase;
+import io.oasp.gastronomy.restaurant.tablemanagement.common.api.datatype.TableState;
+import io.oasp.gastronomy.restaurant.tablemanagement.dataaccess.api.TableEntity;
+import io.oasp.gastronomy.restaurant.tablemanagement.logic.api.to.TableEto;
+import io.oasp.gastronomy.restaurant.tablemanagement.logic.api.usecase.UcManageTable;
+import io.oasp.gastronomy.restaurant.tablemanagement.logic.base.usecase.AbstractTableUc;
+
+import java.util.Objects;
+
+import javax.annotation.security.RolesAllowed;
+import javax.inject.Named;
+import javax.validation.Valid;
+
+import org.springframework.validation.annotation.Validated;
+
+/**
+ * Implementation of {@link UcManageTable}.
+ *
+ */
+@Named
+@UseCase
+@Validated
+public class UcManageTableImpl extends AbstractTableUc implements UcManageTable {
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  @RolesAllowed(PermissionConstants.DELETE_TABLE)
+  public void deleteTable(Long tableId) {
+
+    TableEntity table = getTableDao().find(tableId);
+
+    if (!table.getState().isFree()) {
+      throw new IllegalEntityStateException(table, table.getState());
+    }
+
+    getTableDao().delete(table);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  @RolesAllowed(PermissionConstants.SAVE_TABLE)
+  public TableEto saveTable(@Valid TableEto table) {
+
+    Objects.requireNonNull(table, "table");
+
+    TableEntity tableEntity = getBeanMapper().map(table, TableEntity.class);
+    // initialize
+    if (tableEntity.getState() == null) {
+      tableEntity.setState(TableState.FREE);
+    }
+
+    getTableDao().save(tableEntity);
+    return getBeanMapper().map(tableEntity, TableEto.class);
+  }
+
+}
+
+----
+
+As you can see, implementation classes extend AbstractTableUC class. This class provides the DAO class injection.
+
+.AbstractTableUC.java
+
+[source,java]
+----
+
+package io.oasp.gastronomy.restaurant.tablemanagement.logic.base.usecase;
+
+import io.oasp.gastronomy.restaurant.general.logic.base.AbstractUc;
+import io.oasp.gastronomy.restaurant.tablemanagement.dataaccess.api.dao.TableDao;
+
+import javax.inject.Inject;
+
+/**
+ *
+ */
+public abstract class AbstractTableUc extends AbstractUc {
+
+  /** @see #getTableDao() */
+  private TableDao tableDao;
+
+  /**
+   * @return the {@link TableDao} instance.
+   */
+  public TableDao getTableDao() {
+
+    return this.tableDao;
+  }
+
+  /**
+   * @param tableDao the {@link TableDao} to {@link Inject}.
+   */
+  @Inject
+  public void setTableDao(TableDao tableDao) {
+
+    this.tableDao = tableDao;
+  }
+
+}
+
+----
+
+Finally, we are going to create an interface and the implementating class that joins both UC classes. OASP naming convention for this classes are: [XXX]management and [XXX]managementImpl.
+
+.Tablemanagement.java
+
+[source,java]
+----
+
+package io.oasp.gastronomy.restaurant.tablemanagement.logic.api;
+
+import io.oasp.gastronomy.restaurant.tablemanagement.logic.api.usecase.UcFindTable;
+import io.oasp.gastronomy.restaurant.tablemanagement.logic.api.usecase.UcManageTable;
+
+/**
+ * Interface for TableManagement component.
+ *
+ */
+public interface Tablemanagement extends UcFindTable, UcManageTable {
+
+}
+
+----
+
+.TablemanagementImpl.java
+
+[source,java]
+----
+
+package io.oasp.gastronomy.restaurant.tablemanagement.logic.impl;
+
+import io.oasp.gastronomy.restaurant.general.common.base.AbstractBeanMapperSupport;
+import io.oasp.gastronomy.restaurant.general.logic.api.UseCase;
+import io.oasp.gastronomy.restaurant.tablemanagement.logic.api.Tablemanagement;
+import io.oasp.gastronomy.restaurant.tablemanagement.logic.api.to.TableEto;
+import io.oasp.gastronomy.restaurant.tablemanagement.logic.api.usecase.UcFindTable;
+import io.oasp.gastronomy.restaurant.tablemanagement.logic.api.usecase.UcManageTable;
+
+import java.util.List;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+
+/**
+ * Implementation of {@link Tablemanagement}.
+ *
+ */
+@Named
+public class TablemanagementImpl extends AbstractBeanMapperSupport implements Tablemanagement {
+
+  private UcFindTable ucFindTable;
+
+  private UcManageTable ucManageTable;
+
+  /**
+   * The constructor.
+   */
+  public TablemanagementImpl() {
+
+    super();
+  }
+
+  /**
+   * Sets the field 'ucFindTable'.
+   *
+   * @param ucFindTable New value for ucFindTable
+   */
+  @Inject
+  @UseCase
+  public void setUcFindTable(UcFindTable ucFindTable) {
+
+    this.ucFindTable = ucFindTable;
+  }
+
+  /**
+   * Sets the field 'ucManageTable'.
+   *
+   * @param ucManageTable New value for ucManageTable
+   */
+  @Inject
+  @UseCase
+  public void setUcManageTable(UcManageTable ucManageTable) {
+
+    this.ucManageTable = ucManageTable;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public TableEto findTable(Long id) {
+
+    return this.ucFindTable.findTable(id);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public List<tableeto> findAllTables() {
+
+    return this.ucFindTable.findAllTables();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public List<tableeto> findAllTables() {
+
+    return this.ucFindTable.findAllTables();
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   */
+  @Override
+  public TableEto saveTable(TableEto table) {
+
+    return this.ucManageTable.saveTable(table);
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   */
+  @Override
+  public void deleteTable(Long id) {
+
+    this.ucManageTable.deleteTable(id);
+  }
+
+}
+
+----
+
+This code shows that is merely a delegation for the injected UC and can be automatically generated with eclipse's powerful refactoring capabilities.
+
+== Securing the application
+
+OASP focus on role-based authorization to cope with authorization for executing use case of an application. OASP use the JSR250 annotations, mainly @RolesAllowed, as you have seen, for authorizing method calls against the permissions defined in the annotation body.
+So, finally, we have to create a class to declare the RollesAllowed annotation value as constants:
+
+[source,java]
+----
+
+package io.oasp.gastronomy.restaurant.general.common.api.constants;
+
+/**
+ * Contains constants for the keys of all
+ * {@link io.oasp.module.security.common.api.accesscontrol.AccessControlPermission}s.
+ *
+ */
+public abstract class PermissionConstants {
+
+  /** {@link io.oasp.module.security.common.api.accesscontrol.AccessControlPermission} to retrieve table. */
+  public static final String FIND_TABLE = "FindTable";
+
+  /** {@link io.oasp.module.security.common.api.accesscontrol.AccessControlPermission} to save table. */
+  public static final String SAVE_TABLE = "SaveTable";
+
+  /** {@link io.oasp.module.security.common.api.accesscontrol.AccessControlPermission} to remove table. */
+  public static final String DELETE_TABLE = "DeleteTable";
+}
+
+----
+
+=== Creating REST endpoints
+
+Web applications need to get data from the server, so we have to expose the methods defined in the logic layer to this applications. We need a class that exposes methods as URLs to allow to the applications get the data. By convention, we call this class `[XXX]managementRestServiceImpl` where `[XXX]` will be the name of the entity.
+
+This is an example of a REST API for our `Table` use case using JAX-RS. OASP recommends to use CXF as the implementation for JAX-RS but other libraries following the standard will perform equally.
+
+Also note that the implementation does not follow the canonical +RESTFUL+ approach as Devon proposes a more pragmatic way to use REST. Please refer to the Platform Guide https://github.com/oasp-forge/oasp4j-wiki/wiki/guide-service-layer[service layer] chapter for more information on the subject.
+
+
+.TablemanagementRestServiceImpl.java
+[source,java]
+----
+package io.oasp.gastronomy.restaurant.tablemanagement.service.impl.rest;
+
+import io.oasp.gastronomy.restaurant.tablemanagement.common.api.Table;
+import io.oasp.gastronomy.restaurant.tablemanagement.logic.api.Tablemanagement;
+import io.oasp.gastronomy.restaurant.tablemanagement.logic.api.to.TableEto;
+import io.oasp.gastronomy.restaurant.tablemanagement.logic.api.usecase.UcFindTable;
+import io.oasp.gastronomy.restaurant.tablemanagement.logic.api.usecase.UcManageTable;
+
+import java.util.List;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.ws.rs.BadRequestException;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
+import javax.ws.rs.GET;
+import javax.ws.rs.NotFoundException;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.core.MediaType;
+
+import net.sf.mmm.util.exception.api.ObjectNotFoundUserException;
+
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * The service class for REST calls in order to execute the methods in {@link Tablemanagement}.
+ */
+@Path("/tablemanagement/v1")
+@Named("TablemanagementRestService")
+@Consumes(MediaType.APPLICATION_JSON)
+@Produces(MediaType.APPLICATION_JSON)
+@Transactional
+public class TablemanagementRestServiceImpl {
+
+  private Tablemanagement tableManagement;
+
+  /**
+   * This method sets the field <tt>tableManagement</tt>.
+   *
+   * @param tableManagement the new value of the field tableManagement
+   */
+  @Inject
+  public void setTableManagement(Tablemanagement tableManagement) {
+
+    this.tableManagement = tableManagement;
+  }
+
+  /**
+   * Delegates to {@link UcFindTable#findTable}.
+   *
+   * @param id the ID of the {@link TableEto}
+   * @return the {@link TableEto}
+   */
+  @GET
+  @Path("/table/{id}/")
+  public TableEto getTable(@PathParam("id") String id) {
+
+    Long idAsLong;
+    if (id == null) {
+      throw new BadRequestException("missing id");
+    }
+    try {
+      idAsLong = Long.parseLong(id);
+    } catch (NumberFormatException e) {
+      throw new BadRequestException("id is not a number");
+    } catch (NotFoundException e) {
+      throw new BadRequestException("table not found");
+    }
+    return this.tableManagement.findTable(idAsLong);
+  }
+
+  /**
+   * Delegates to {@link UcFindTable#findAllTables}.
+   *
+   * @return list of all existing restaurant {@link TableEto}s
+   */
+  @GET
+  @Path("/table/")
+  public List<tableeto> getAllTables() {
+
+    List<tableeto> allTables = this.tableManagement.findAllTables();
+    return allTables;
+  }
+
+  /**
+   * Delegates to {@link UcFindTable#findFreeTables}.
+   *
+   * @return list of all existing free {@link TableEto}s
+   */
+  @GET
+  @Path("/freetables/")
+  public List<tableeto> getFreeTables() {
+
+    return this.tableManagement.findFreeTables();
+  }
+
+  /**
+   * Delegates to {@link UcManageTable#saveTable}.
+   *
+   * @param table the {@link TableEto} to be created
+   * @return the recently created {@link TableEto}
+   */
+  @POST
+  @Path("/table/")
+  public TableEto saveTable(TableEto table) {
+
+    return this.tableManagement.saveTable(table);
+  }
+
+  /**
+   * Delegates to {@link UcManageTable#deleteTable}.
+   *
+   * @param id ID of the {@link TableEto} to be deleted
+   */
+  @DELETE
+  @Path("/table/{id}/")
+  public void deleteTable(@PathParam("id") Long id) {
+
+    this.tableManagement.deleteTable(id);
+  }
+}
+
+----
+
+Is important to mention:
+
+* We send and receive the information in JSON format.
+* We specify the version of the entire API or every method. 
+
+Finally, we need to add this implementation into JAX-RS server bean definition:
+
+[source,xml]
+----
+  <jaxrs:server id="CxfRestServices" address="/rest">
+    <jaxrs:providers>
+      <bean class="com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider">
+      <property name="mapper">
+        <ref bean="JacksonObjectMapper">
+      </ref></property>
+      </bean>
+      <ref bean="RestServiceExceptionFacade">
+    </ref></jaxrs:providers>
+    <jaxrs:servicebeans>
+      <ref bean="TablemanagementRestService">
+      <ref bean="SecurityRestService">
+    </ref></ref></jaxrs:servicebeans>
+  </jaxrs:server>
+
+----
+
+As you can see, we have defined the REST URLs for our Table user case. Now, for example, you can find all tables on this URL: 
+
+[source]
+----
+http://server:port/application-name/tablemanagement/v1/table/
+----
+
+==== DTO conversion
+
+In the logic API, the methods of the classes should return Data Transfer Object (DTO) instead of entities. So, in OASP we have a mechanism to convert the entities into DTOs.
+
+This is an example of how to convert a entity into a DTO:
+
+[source,java]
+----
+    // Conversion for lists
+    getBeanMapper().mapList(tableList, TableDto.class);
+
+    // Conversion for objects
+    getBeanMapper().map(table, TableDto.class);
+
+----
+
+In the example, we use the function +getBeanMapper()+. This function provides us an API to convert entities into DTOs. In the logic layer, we only have to extend the class +AbstractUc+ to access to this functionality.
+
+
+==== Exceptions
+===== User exceptions
+===== Non controlled exceptions
+== Internationalization
+
+=== Pagination
+=== Sorting
+
+
+[source,java]
+----
+
+package io.oasp.gastronomy.restaurant.tablemanagement.common.api.datatype;
+
+/**
+ * This enum identifies the entity, on which the sorting should be executed.
+ *
+ */
+public enum TableSortByHitEntry {
+
+  /**
+   * Sort by id.
+   */
+  ID("id"),
+  /**
+   * Sort by number.
+   */
+  NUMBER("number"),
+  /**
+   * Sort by state.
+   */
+  STATE("state"),
+  /**
+   * Sort by waiterId.
+   */
+  WAITERID("waiterId");
+
+  private final String sortByAttributeName;
+
+  private TableSortByHitEntry(String sortByAttributeName) {
+
+    this.sortByAttributeName = sortByAttributeName;
+  }
+
+  /**
+   * @return sortByAttributeName
+   */
+  public String getSortByAttributeName() {
+
+    return this.sortByAttributeName;
+  }
+
+  /**
+   * This method returns an {@link TableSortByHitEntry} for a given {@link #getSortByAttributeName() attribute name}.
+   *
+   * @param sortByAttributeName the name.
+   * @return an {@link TableSortByHitEntry}
+   */
+  public static TableSortByHitEntry getEntryForAttributeName(String sortByAttributeName) {
+
+    for (TableSortByHitEntry entry : TableSortByHitEntry.values()) {
+      if (entry.sortByAttributeName.equals(sortByAttributeName)) {
+        return entry;
+      }
+    }
+
+    return null;
+  }
+}
+
+----
+
+
+[source,java]
+----
+
+package io.oasp.gastronomy.restaurant.tablemanagement.logic.api.to;
+
+import io.oasp.gastronomy.restaurant.general.common.api.datatype.OrderBy;
+import io.oasp.gastronomy.restaurant.tablemanagement.common.api.datatype.TableSortByHitEntry;
+
+/**
+ * Table sortBy class
+ */
+public class TableSortBy {
+
+  private TableSortByHitEntry sortByEntry;
+
+  private OrderBy orderBy;
+
+  /**
+   * The constructor.
+   */
+  public TableSortBy() {
+
+    this.sortByEntry = TableSortByHitEntry.ID;
+    this.orderBy = OrderBy.ASC;
+  }
+
+  /**
+   * Returns the field 'sortByEntry'.
+   *
+   * @return Value of sortByEntry
+   */
+  public TableSortByHitEntry getSortByEntry() {
+
+    return this.sortByEntry;
+  }
+
+  /**
+   * Sets the field 'sortByEntry'.
+   *
+   * @param sortByEntry New value for sortByEntry
+   */
+  public void setSortByEntry(TableSortByHitEntry sortByEntry) {
+
+    this.sortByEntry = sortByEntry;
+  }
+
+  /**
+   * Returns the field 'orderBy'.
+   *
+   * @return Value of orderBy
+   */
+  public OrderBy getOrderBy() {
+
+    return this.orderBy;
+  }
+
+  /**
+   * Sets the field 'orderBy'.
+   *
+   * @param orderBy New value for orderBy
+   */
+  public void setOrderBy(OrderBy orderBy) {
+
+    this.orderBy = orderBy;
+  }
+
+}
+
+----
+
+=== Testing endpoints
+
+SOAPUI, JUnit? 
+
+=== Creating Web Services

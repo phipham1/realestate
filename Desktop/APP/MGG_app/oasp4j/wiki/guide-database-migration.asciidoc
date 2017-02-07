@@ -1,0 +1,47 @@
+:toc: macro
+toc::[]
+
+= Database Migration
+
+For database migrations we use http://flywaydb.org/[Flyway]. Flyway can be used standalone or can be integrated via its api to make sure the database migration takes place on startup.
+To enable auto migration on startup (not recommended for productive environment) set the following property in the +application.properties+ file.
+[source, properties]
+----
+  database.migration.auto = true
+----
+It is set to +false+ by default via +application-default.properties+ and shall be done explicitly in production environments. For development environment it is set to +true+ in order to simplify development. This is also recommend for regular test environments.
+
+If you want to use Flyway set the following property in any case to prevent Hibernate from doing changes on the database (pre-configured by default of OASP):
+
+[source, properties]
+----
+  database.hibernate.hbm2ddl.auto=validate
+----
+
+If you want flyway to clear the database before applying the migrations (all data will be deleted), set the following property (default is false):
+
+[source, properties]
+----
+  database.migration.clean = true
+----
+
+New database migrations are added to +src/main/resources/db/migrations+. They can be http://flywaydb.org/documentation/migration/sql.html[SQL] based or http://flywaydb.org/documentation/migration/java.html[Java] based and follow this naming convention:
+V<version>\__<description> (e.g.: V0003__Add_new_table.sql). For new SQL based migrations also stick to the following conventions:
+
+* properties in camlCase
+* tables in UPPERCASE
+* ID properties with underscore (e.g. table_id)
+* constraints all UPPERCASE with 
+ * PK_{table} for primary key
+ * FK_{sourcetable}2{target} for foreign keys
+ * UC_{table}_{property} for unique constraints
+* Inserts always with the same order of properties in blocks for each table
+* Insert properties always starting with id, modificationCounter, [dtype, ] ...
+
+It is also possible to use Flyway for test data. To do so place your test data migrations in +src/main/resources/db/test-data/+ and set property
+
+[source, properties]
+----
+  database.migration.testdata = true
+----
+Than Flyway scans the additional location for migrations and applies all in the order specified by their version. If migrations +V_01__...+ and +V_02__...+ exist and a test data migration should be applied in between you can name it +V_01_1__...+.

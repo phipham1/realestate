@@ -1,0 +1,680 @@
+:toc: macro
+toc::[]
+
+= Data-Access Layer
+
+The data-access layer is responsible for all outgoing connections to access and process data. This is mainly about accessing data from a persistent data-store but also about invoking external services.
+
+== Persistence
+For mapping java objects to a relational database we use the http://www.oracle.com/technetwork/java/javaee/tech/persistence-jsp-140049.html[Java Persistence API (JPA)]. 
+As JPA implementation we recommend to use http://hibernate.org/orm/[hibernate]. For general documentation about JPA and hibernate follow the links above as we will not replicate the documentation. Here you will only find guidelines and examples how we recommend to use it properly. The following examples show how to map the data of a database to an entity.
+
+=== Entity
+Entities are part of the persistence layer and contain the actual data. They are POJOs (Plain Old Java Objects) on which the relational data of a database is mapped and vice versa. The mapping is configured via JPA annotations (+javax.persistence+). Usually an entity class corresponds to a table of a database and a property to a column of that table. An persistent entity instance then represents a row of the database table.
+
+==== A Simple Entity
+The following listing shows a simple example:
+
+[source,java]
+----
+@Entity
+@Table(name="TEXTMESSAGE")
+public class MessageEntity extends AbstractPersistenceEntity {
+
+  private String text;
+ 
+  public String getText() {
+    return this.text;
+  }
+ 
+  public void setText(String text) {
+    this.text = text;
+  }
+ }
+---- 
+The +@Entity+ annotation defines that instances of this class will be entities which can be stored in the database. The +@Table+ annotation is optional and can be used to define the name of the corresponding table in the database. If it is not specified, the simple name of the entity class is used instead.
+
+In order to specify how to map the attributes to columns we annotate the corresponding getter methods (technically also private field annotation is also possible but approaches can not be mixed).
+The +@Id+ annotation specifies that a property should be used as xref:primary-keys[primary key].
+With the help of the +@Column+ annotation it is possible to define the name of the column that an attribute is mapped to as well as other aspects such as +nullable+ or +unique+. If no column name is specified, the name of the property is used as default.
+
+Note that every entity class needs a constructor with public or protected visibility that does not have any arguments. Moreover, neither the class nor its getters and setters may be final.
+
+Entities should be simple POJOs and not contain business logic.
+
+==== Entities and Datatypes
+Standard datatypes like +Integer+, +BigDecimal+, +String+, etc. are mapped automatically by JPA. Custom link:guide-datatype[datatypes] are mapped as serialized xref:blob[BLOB] by default what is typically undesired. 
+In order to map atomic custom datatypes (implementations of +SimpleDatatype+) we implement an +AttributeConverter+. Here is a simple example:
+[source,java]
+----
+@Converter(autoApply = true)
+public class MoneyAttributeConverter implements AttributeConverter<Money, BigDecimal> {
+
+  public BigDecimal convertToDatabaseColumn(Money attribute) {
+    return attribute.getValue();
+  }
+
+  public Money convertToEntityAttribute(BigDecimal dbData) {
+    return new Money(dbData);
+  }
+}
+----
+The annotation +@Converter+ is detected by the JPA vendor if the annotated class is in the packages to scan (see +beans-jpa.xml+). Further, +autoApply = true+ implies that the converter is automatically used for all properties of the handled datatype. Therefore all entities with properties of that datatype will automatically be mapped properly (in our example +Money+ is mapped as +BigDecimal+).
+
+In case you have a composite datatype that you need to map to multiple columns the JPA does not offer a real solution. As a workaround you can use a bean instead of a real datatype and declare it as xref:embeddable[+@Embeddable+]. If you are using hibernate you can implement +CompositeUserType+. Via the +@TypeDef+ annotation it can be registered to hibernate. If you want to annotate the +CompositeUserType+ implementation itself you also need another annoation (e.g. +MappedSuperclass+ tough not technically correct) so it is found by the scan.
+
+===== Enumerations
+By default JPA maps Enums via their ordinal. Therefore the database will only contain the ordinals (0, 1, 2, etc.) so inside the database you can not easily understand their meaning. Using +@Enumerated+ with +EnumType.STRING+ allows to map the enum values to their name (+Enum.name()+). Both approaches are fragile when it comes to code changes and refactorings (if you change the order of the enum values or rename them) after being in production with your application. If you want to avoid this and get a robust mapping you can define a dedicated string in each enum value for database representation that you keep untouched. Then you treat the enum just like any other xref:entities-and-datatypes[custom datatype].
+
+===== BLOB
+If binary or character large objects (BLOB/CLOB) should be used to store the value of an attribute, e.g. to store an icon, the +@Lob+ annotation should be used as shown in the following listing: 
+[source,java]
+----
+@Lob
+public byte[] getIcon() {
+  return this.icon;
+}
+----
+WARNING: Using a byte array will cause problems if BLOBs get large because the entire BLOB is loaded into the RAM of the server and has to be processed by the garbage collector. For larger BLOBs the type http://docs.oracle.com/javase/6/docs/api/java/sql/Blob.html[Blob] and streaming should be used.
+
+[source,java]
+----
+public Blob getAttachment() {
+  return this.attachment;
+}
+----
+
+===== Date and Time
+To store date and time related values, the temporal annotation can be used as shown in the listing below:
+[source,java]
+----
+@Temporal(TemporalType.TIMESTAMP)
+public java.util.Date getStart() {
+  return start;
+}
+----
+Until Java8 the java data type +java.util.Date+ (or Jodatime) has to be used. 
++TemporalType+ defines the granularity. In this case, a precision of nanoseconds is used. If this granularity is not wanted, +TemporalType.DATE+ can be used instead, which only has a granularity of milliseconds. 
+Mixing these two granularities can cause problems when comparing one value to another. This is why we *only*  use +TemporalType.TIMESTAMP+.
+
+==== Primary Keys
+We only use simple Long values as primary keys (IDs). By default it is auto generated (+@GeneratedValue(strategy=GenerationType.AUTO)+). This is already provided by the class +io.oasp.module.jpa.persistence.api.AbstractPersistenceEntity+ that you can extend.
+In case you have business oriented keys (often as +String+), you can define an additional property for it and declare it as unique (+@Column(unique=true)+).
+
+=== Data Access Object
+_Data Acccess Objects_ (DAOs) are part of the persistence layer. They are responsible for a specific xref:entity[entity] and should be named +<Entity>Dao[Impl]+. The DAO offers the so called CRUD-functionalities (create, retrieve, update, delete) for the corresponding entity. Additionally a DAO may offer advanced operations such as query or locking methods.
+
+==== DAO Interface
+For each DAO there is an interface named +<Entity>Dao+ that defines the API. For CRUD support and common naming we derive it from the interface +io.oasp.module.jpa.persistence.api.Dao+:
+[source,java]
+----
+public interface MyEntityDao extends Dao<MyEntity> { 
+
+  List<MyEntity> findByCriteria(MyEntitySearchCriteria criteria);
+}
+----
+As you can see, the interface +Dao+ has a type parameter for the entity class. All CRUD operations are only inherited so you only have to declare the additional methods.
+
+==== DAO Implementation
+Implementing a DAO is quite simple. We crate a class named +<Entity>DaoImpl+ that extends +io.oasp.module.jpa.persistence.base.AbstractDao+ and implements your +<Entity>Dao+ interface:
+[source,java]
+----
+public class MyEntityDaoImpl extends AbstractDao<MyEntity> implements MyEntityDao { 
+
+  public List<MyEntity> findByCriteria(MyEntitySearchCriteria criteria) {
+    TypedQuery<MyEntity> query = createQuery(criteria, getEntityManager());
+    return query.getResultList();
+  }
+  ...
+}
+----
+
+As you can see +AbstractDao+ already implements the CRUD operations so you only have to implement the additional methods that you have declared in your +<Entity>Dao+ interface.
+In the DAO implementation you can use the method +getEntityManager()+ to access the +EntityManager+ from the JPA. You will need the +EntityManager+ to create and execute xref:queries[queries].
+
+=== Queries
+The http://www.oracle.com/technetwork/java/javaee/tech/persistence-jsp-140049.html[Java Persistence API (JPA)] defines its own query language, the java persistence query language (JPQL), which is similar to SQL but operates on entities and their attributes instead of tables and columns.
+
+==== Static Queries
+The OASP4J advises to specify all queries in one mapping file called +NamedQueries.xml+.
+        
+Add the following query to this file: 
+[source,xml]
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<entity-mappings version="1.0" xmlns="http://java.sun.com/xml/ns/persistence/orm" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://java.sun.com/xml/ns/persistence/orm http://java.sun.com/xml/ns/persistence/orm_1_0.xsd">
+  <named-query name="get.open.order.positions.for.order">
+    <query><![CDATA[SELECT op FROM OrderPosition op where op.order.id = ? AND op.state NOT IN (PAYED, CANCELLED)]]></query>
+  </named-query>
+  ...
+</hibernate-mapping>
+----
+To avoid redundant occurrences of the query name (+get.open.order.positions.for.order+) we define the constants for each named query:
+[source,java]
+----
+package io.oasp.gastronomy.restaurant.general.common.api.constants;
+ 
+public class NamedQueries {
+  public static final String GET_OPEN_ORDER_POSITION_FOR_ORDER = "get.open.order.positions.for.order"; 
+}
+----
+Note that changing the name of the java constant (+GET_OPEN_ORDER_POSITION_FOR_ORDER+) can be done easily with refactoring. Further you can trace where the query is used by searching the references of the constant.
+
+The following listing shows how to use this query (in class +StaffMemberDaoImpl+, remember to adapt +StaffMemberDao+!):
+[source,java]
+----
+public List<StaffMember> getStaffMemberByName(String firstName, String lastName) {
+  Query query = getEntityManager().createNamedQuery(NamedQueries.STAFFMEMBER_SEARCH_BY_NAME);
+        
+  query.setParameter("firstName", firstName);
+  query.setParameter("lastName", lastName);
+        
+  return query.getResultList();
+}
+----
+The EntityManager contains a method called +createNamedQuery(String)+, which takes as parameter the name of the query and creates a new query object. As the query has two parameters, these have to be set using the +setParameter(String, Object)+ method. +
+Note that using the +createQuery(String)+ method, which takes as parameter the query as string (this string already contains the parameters) is not allowed as this makes the application vulnerable to SQL injection attacks. +
+When the method +getResultList()+ is invoked, the query is executed and the result is delivered as list. As an alternative, there is a method called +getSingleResult()+, which returns the entity if the query returned exactly one and throws an exception otherwise.
+
+===== Using Queries to Avoid Bidirectional Relationships 
+With the usage of queries it is possible to avoid bidirectional relationships, which have some disadvantages (see xref:relationships[relationships]). So for example to get all +WorkingTime+'s for a specific +StaffMember+ without having an attribute in the +StaffMember+'s class that stores these +WorkingTime+'s, the following query is needed:
+[source,xml]
+----
+<query name="working.time.search.by.staff.member">
+
+  <![CDATA[select work from WorkingTime work where work.staffMember = :staffMember]]>
+
+</query>
+----    
+The method looks as follows (extract of class +WorkingTimeDaoImpl+):
+[source,java]
+----
+public List<WorkingTime> getWorkingTimesForStaffMember(StaffMember staffMember) {
+  Query query = getEntityManager().createNamedQuery(NamedQueries.WORKING_TIMES_SEARCH_BY_STAFFMEMBER);
+  query.setParameter("staffMember", staffMember);
+  return query.getResultList();
+}
+----
+Do not forget to adapt the +WorkingTimeDao+ interface and the +NamedQueries+ class accordingly.
+
+To get a more detailed description of how to create queries using JPQL, please have a look http://docs.oracle.com/javaee/5/tutorial/doc/bnbtg.html[here] or http://m-m-m.sourceforge.net/apidocs/net/sf/mmm/persistence/api/jpql/JpqlSyntax.html#JPQL_STATEMENT[here].
+
+==== Dynamic Queries
+For dynamic queries we recommend to use http://www.querydsl.com/[QueryDSL]. It allows to implement queries in a powerful but readable and type-safe way (unlike Criteria API). If you already know JPQL you will quickly be able to read and write QueryDSL code. It feels like JPQL but implemented in Java instead of plain text.
+
+Please be aware that code-generation can be painful especially with large teams. We therefore recommend to use QueryDSL without code-generation. Here is an example from our sample application:
+
+[source,java]
+----
+  public List<OrderEntity> findOrders(OrderSearchCriteriaTo criteria) {
+
+    OrderEntity order = Alias.alias(OrderEntity.class);
+    EntityPathBase<OrderEntity> alias = Alias.$(order);
+    JPAQuery query = new JPAQuery(getEntityManager()).from(alias);
+    Long tableId = criteria.getTableId();
+    if (tableId != null) {
+      query.where(Alias.$(order.getTableId()).eq(tableId));
+    }
+    OrderState state = criteria.getState();
+    if (state != null) {
+      query.where(Alias.$(order.getState()).eq(state));
+    }
+    applyCriteria(criteria, query);
+    return query.list(alias);
+  }
+----
+
+==== Using Wildcards
+For flexible queries it is often required to allow wildcards (especially in xref:dynamic_queries[dynamic queries]). While users intuitively expect glob syntax the SQL and JPQL standards work different. Therefore a mapping is required (see http://m-m-m.sourceforge.net/apidocs/net/sf/mmm/persistence/api/jpql/JpqlSyntax.html#PATTERN_VALUE[here]).
+
+==== Pagination
+The OASP provides the method +findPaginated+ in +AbstractGenericDao+ that executes a given query (for now only QueryDSL is supported) with pagination parameters based on +SearchCriteriaTo+. So all you need to do is derive your individual search criteria objects from +SearchCriteriaTo+, prepare a QueryDSL-query with the needed custom search criterias, and call +findPaginated+. Here is an example from our sample application:
+
+[source,java]
+----
+  @Override
+  public PaginatedListTo<OrderEntity> findOrders(OrderSearchCriteriaTo criteria) {
+
+    OrderEntity order = Alias.alias(OrderEntity.class);
+    EntityPathBase<OrderEntity> alias = Alias.$(order);
+    JPAQuery query = new JPAQuery(getEntityManager()).from(alias);
+
+    Long tableId = criteria.getTableId();
+    if (tableId != null) {
+      query.where(Alias.$(order.getTableId()).eq(tableId));
+    }
+    OrderState state = criteria.getState();
+    if (state != null) {
+      query.where(Alias.$(order.getState()).eq(state));
+    }
+
+    return findPaginated(criteria, query, alias);
+  }
+----
+
+Then the query allows pagination by setting +pagination.size+ (+SearchCriteriaTo.getPagination().setSize(Integer)+) to the number of hits per page and +pagination.page+ (+SearchCriteriaTo.getPagination().setPage(int)+) to the desired page.
+If you allow the client to specify +pagination.size+, it is recommended to limit this value on the server side (+SearchCriteriaTo.limitMaximumPageSize(int)+) to prevent performance problems or DOS-attacks.
+If you need to also return the total number of hits available, you can set +SearchCriteria.getPagination().setTotal(boolean)+ to +true+.
+
+===== Pagination example
+
+For the table entity we can make a search request by accessing the REST endpoint with pagination support like in the following examples:
+
+
+
+[source,json]
+----
+POST oasp4j-sample-server/services/rest/tablemanagement/v1/table/search
+{
+  "pagination": { 
+    "size":2,
+    "total":true
+  }
+}
+
+//Response
+{
+    "pagination": {
+        "size": 2,
+        "page": 1,
+        "total": 11
+    },
+    "result": [
+        {
+            "id": 101,
+            "modificationCounter": 1,
+            "revision": null,
+            "waiterId": null,
+            "number": 1,
+            "state": "OCCUPIED"
+        },
+        {
+            "id": 102,
+            "modificationCounter": 1,
+            "revision": null,
+            "waiterId": null,
+            "number": 2,
+            "state": "FREE"
+        }
+    ]
+}
+----
+
+NOTE: as we are requesting with the +total+ property set to +true+ the server responds with the total count of rows for the query.
+
+For retrieving a concrete page, we provide the +page+ attribute with the desired value. Here we also left out the +total+ property so the server doesn't incur on the effort to calculate it:
+
+[source,json]
+----
+POST oasp4j-sample-server/services/rest/tablemanagement/v1/table/search
+{
+  "pagination": { 
+    "size":2, 
+    "page":2
+  }
+}
+
+//Response
+
+{
+    "pagination": {
+        "size": 2,
+        "page": 2,
+        "total": null
+    },
+    "result": [
+        {
+            "id": 103,
+            "modificationCounter": 1,
+            "revision": null,
+            "waiterId": null,
+            "number": 3,
+            "state": "FREE"
+        },
+        {
+            "id": 104,
+            "modificationCounter": 1,
+            "revision": null,
+            "waiterId": null,
+            "number": 4,
+            "state": "FREE"
+        }
+    ]
+}
+---- 
+
+
+
+
+
+==== Query Meta-Parameters
+Queries can have meta-parameters and the OASP currently provides support for _timeout_.
+The OASP provides the method +applyCriteria+ in +AbstractGenericDao+ that applies meta-parameters to a query based on +SearchCriteriaTo+.
+If you already use the pagination support (see above), you do not need to call +applyCriteria+ manually, as it is called internally by +findPaginated+.
+
+=== Relationships
+==== n:1 and 1:1 Relationships
+Entities often do not exist independently but are in some relation to each other. For example, for every period of time one of the StaffMember's of the restaurant example has worked, which is represented by the class +WorkingTime+, there is a relationship to this StaffMember. 
+				
+The following listing shows how this can be modeled using JPA:
+[source,java]
+----
+...
+
+@Entity
+public class WorkingTime {
+   ...
+
+   private StaffMember staffMember;
+ 
+   @ManyToOne
+   @JoinColumn(name="STAFFMEMBER")
+   public StaffMember getStaffMember() {
+      return staffMember;
+   }
+ 
+   public void setStaffMember(StaffMember staffMember) {
+      this.staffMember = staffMember;
+   }
+}
+----
+To represent the relationship, an attribute of the type of the corresponding entity class that is referenced has been introduced. The relationship is a n:1 relationship, because every +WorkingTime+ belongs to exactly one +StaffMember+, but a +StaffMember+ usually worked more often than once. +
+This is why the +@ManyToOne+ annotation is used here. For 1:1 relationships the +@OneToOne+ annotation can be used which works basically the same way. To be able to save information about the relation in the database, an additional column in the corresponding table of WorkingTime is needed which contains the primary key of the referenced StaffMember. With the +name+ element of the +@JoinColumn+ annotation it is possible to specify the name of this column.
+
+==== 1:n and n:m Relationships
+The relationship of the example listed above is currently an unidirectional one, as there is a getter method for retrieving the +StaffMember+ from the +WorkingTime+ object, but not vice versa. 
+
+To make it a bidirectional one, the following code has to be added to +StaffMember+:
+[source,java]
+----
+  private Set<WorkingTimes> workingTimes;
+ 
+  @OneToMany(mappedBy="staffMember")
+  public Set<WorkingTime> getWorkingTimes() {
+    return workingTimes;
+  }
+       
+  public void setWorkingTimes(Set<WorkingTime> workingTimes) {
+    this.workingTimes = workingTimes;
+  }
+----
+To make the relationship bidirectional, the tables in the database do not have to be changed. Instead the column that corresponds to the attribute +staffMember+ in class +WorkingTime+ is used, which is specified by the +mappedBy+ element of the +@OneToMany+ annotation. Hibernate will search for corresponding +WorkingTime+ objects automatically when a +StaffMember+ is loaded.
+
+The problem with bidirectional relationships is that if a +WorkingTime+ object is added to the set or list +workingTimes+ in +StaffMember+, this does not have any effect in the database unless
+the +staffMember+ attribute of that +WorkingTime+ object is set. That is why the OASP4J advices not to use bidirectional relationships but to use queries instead. How to do this is shown xref:queries[here]. If a bidirectional relationship should be used nevertheless, approriate add and remove methods must be used.
+
+For 1:n and n:m relations, the OASP4J demands that (unordered) Sets and no other collection types are used, as shown in the listing above. The only exception is whenever an ordering is really needed, (sorted) lists can be used. +
+For example, if +WorkingTime+ objects should be sorted by their start time, this could be done like this:
+[source,java]
+----
+  private List<WorkingTimes> workingTimes;
+ 
+  @OneToMany(mappedBy = "staffMember")
+  @OrderBy("startTime asc")
+  public List<WorkingTime> getWorkingTimes() {
+    return workingTimes;
+  }
+ 
+  public void setWorkingTimes(List<WorkingTime> workingTimes) {
+    this.workingTimes = workingTimes;
+  }
+----
+The value of the +@OrderBy+ annotation consists of an attribute name of the class followed by +asc+ (ascending) or +desc+ (descending). 
+
+To store information about a n:m relationship, a separate table has to be used, as one column cannot store several values (at least if the database schema is in first normal form). +
+For example if one wanted to extend the example application so that all ingredients of one +FoodDrink+ can be saved and to model the ingredients themselves as entities (e.g. to store additional information about them), this could be modeled as follows (extract of class +FoodDrink+):
+[source,java]
+----
+  private Set<Order> ingredients;
+ 
+  @ManyToMany
+  @JoinTable
+  public Set<Ingredient> getIngredients() {
+    return ingredients;
+  }
+ 
+  public void setOrders(Set<Ingredient> ingredients) {
+    this.ingredients = ingredients;
+  }
+----
+Information about the relation is stored in a table called +BILL_ORDER+ that has to have two columns, one for referencing the Bill, the other one for referencing the Order. Note that the +@JoinTable+ annotation is not needed in this case because a separate table is the default solution here (same for n:m relations) unless there is a +mappedBy+ element specified.
+     
+For 1:n relationships this solution has the disadvantage that more joins (in the database system) are needed to get a Bill with all the Order's it refers to. This might have a negative impact on performance so that the solution to store a reference to the Bill row/entity in the Order's table is probably the better solution in most cases.
+     
+Note that bidirectional n:m relationships are not allowed for applications based on the OASP4J. Instead a third entity has to be introduced, which "represents" the relationship (it has two n:1 relationships).
+
+==== Eager vs. Lazy Loading
+Using JPA/Hibernate it is possible to use either lazy or eager loading. Eager loading means that for entities retrieved from the database, other entities that are referenced by these entities are also retrieved, whereas lazy loading means that this is only done when they are actually needed, i.e. when the corresponding getter method is invoked.
+        
+Application based on the OASP4J must use lazy loading per default. Projects generated with the project generator are already configured so that this is actually the case (this is done in the file +NamedQueries.hbm.xml+).
+        
+For some entities it might be beneficial if eager loading is used. For example if every time a +Bill+ is processed, the +Order+ entities it refers to are needed, eager loading can be used as shown in the following listing:
+[source,java]
+----
+  @OneToMany(fetch = FetchType.EAGER)
+  @JoinTable
+  public Set<Order> getOrders() {
+    return orders;
+  }
+----
+This can be done with all four types of relationships (annotations: +@OneToOne+, +@ManyToOne+, +@OneToMany+, +@ManyToOne+).
+
+==== Cascading Relationships
+It is not only possible to specify what happens if an entity is loaded that has some relationship to other entities (see above), but also if an entity is for example persisted or deleted. By default, nothing is done in these situations. +
+This can be changed by using the +cascade+ element of the annotation that specifies the relation type (+@OneToOne+, +@ManyToOne+, +@OneToMany+, +@ManyToOne+). For example, if a +StaffMember+ is persisted, all its +WorkingTime+'s should be persisted and if the same applies for deletions (and some other situations, for example if an entity is reloaded from the database, which can be done using the +refresh(Object)+ method of an EntityManager), this can be realized as shown in the following listing (extract of the +StaffMember+ class):
+[source,java]
+----
+  @OneToMany(mappedBy = "staffMember", cascade=CascadeType.ALL)
+  public Set<WorkingTime> getWorkingTime() {
+    return workingTime;
+  }
+----
+There are several +CascadeTypes+, e.g. to specify that a "cascading behavior" should only
+be used if an entity is persisted (+CascadeType.PERSIST+) or deleted (+CascadeType.REMOVE+), see http://meri-stuff.blogspot.de/2012/03/jpa-tutorial.html[here] for more information. 
+
+=== Embeddable
+An embeddable Object is a way to implement xref:relationships[relationships] between xref:entity[entities], but with a mapping in which both entities are in the same database table. If these entities are often needed together, this is a good way to speed up database operations, as only one access to a table is needed to retrieve both entities. 
+
+Suppose the restaurant example application has to be extended in a way that it is possible to store information about the addresses of +StaffMember+'s, this can be done with a new +Address+ class:
+[source,java]
+----
+...
+@Embeddable
+public class Address {
+    
+  private String street;
+    
+  private String number;
+    
+  private Integer zipCode;
+    
+  private String city;
+ 
+  @Column(name="STREETNUMBER")
+  public String getNumber() {
+    return number;
+  }
+ 
+  public void setNumber(String number) {
+    this.number = number;
+  }
+    
+  ...  // other getter and setter methods, equals, hashCode
+}
+----
+This class looks a bit like an entity class, apart from the fact that the +@Embeddable+ annotation is used instead of the +@Entity+ annotation and no primary key is needed here. In addition to that the methods +equals(Object)+ and +hashCode()+ need to be implemented as this is required by Hibernate (it is not required for entities because they can be unambiguously identified by their primary key). For some hints on how to implement the +hashCode()+ method please have a look http://stackoverflow.com/questions/113511/hash-code-implementation[here]. 
+        
+Using the address in the +StaffMember+ entity class can be done as shown in the following listing:
+[source,java]
+----
+...
+ 
+@Entity
+public class StaffMember implements StaffMemberRo {
+ 
+  ...
+  private Address address;
+  ...
+ 
+  @Embedded
+  public Address getAddress() {
+    return address;
+  }
+ 
+  public void setAddress(Address address) {
+    this.address = address;
+  }
+} 
+----
+The +@Embedded+ annotation needs to be used for embedded attributes. Note that if in all columns in the +StaffMember+'s table that belong to the +Address+ embeddable there are null values, the +Address+ is null when retrieving the +StaffMember+ entity from the database. This has to be considered when implementing the application core to avoid NullPointerException's.
+      
+Moreover, if the database tables are created automatically by Hibernate and a primitive data type is used in the embeddable (in the example this would be the case if +int+ is used instead of +Integer+ as data type for the +zipCode+), there will be a not null constraint on the corresponding column (reason: a primitive data type can never be null in java, so hibernate always introduces a not null constraint). This constraint would be violated if one tries to insert a +StaffMember+ without an +Address+ object (this might be considered as a bug in Hibernate).
+      
+Another way to realize the one table mapping are Hibernate UserType's, as described http://tedyoung.me/2012/02/07/custom-user-types-with-jpa-and-spring/[here].
+
+=== Inheritance
+Just like normal java classes, xref:entity[entity] classes can inherit from others. The only difference is that you need to specify how to map a subtype hierarchy to database tables. 
+
+The http://www.oracle.com/technetwork/java/javaee/tech/persistence-jsp-140049.html[Java Persistence API (JPA)] offers three ways how to do this: 
+--
+* One table per hierarchy. This table contains all columns needed to store all types of entities in the hierarchy. If a column is not needed for an entity because of its type, there is a null value in this column. An additional column is introduced, which denotes the type of the entity (called +"dtype"+ which is of type +varchar+ and stores the class name).
+* One table per subclass. For each concrete entity class there is a table in the database that can store such an entity with all its attributes. An entity is only saved in the table corresponding to its most concrete type. To get all entities of a type that has subtypes, joins are needed.
+* One table per subclass: joined subclasses. In this case there is a table for every entity class (this includes abstract classes), which contains all columns needed to store an entity of that class apart from those that are already included in the table of the supertype. Additionally there is a primary key column in every table. To get an entity of a class that is a subclass of another one, joins are needed. 
+--
+Every of the three approaches has its advantages and drawbacks, which are discussed in detail http://openjpa.apache.org/builds/1.0.4/apache-openjpa-1.0.4/docs/manual/jpa_overview_mapping_inher.html#jpa_overview_mapping_inher_tpc[here]. In most cases, the first one should be used, because it is usually the fastest way to do the mapping, as no joins are needed when retrieving entities and persisting a new entity or updating one only affects one table. Moreover it is rather simple and easy to understand. +
+One major disadvantage is that the first approach could lead to a table with a lot of null values, which might have a negative impact on the database size.
+          
+The following listings show how to realize a class hierarchy among entity classes for the class +FoodDrink+ and its subclass +Drink+:
+[source,java]
+----
+...
+
+@Entity
+@Inheritance(strategy=InheritanceType.SINGLE_TABLE)
+public abstract class FoodDrink {
+    
+  private long id;
+    
+  private String description;
+    
+  private byte[] picture;
+
+  private long version;
+
+  @Id
+  @Column(name = "ID")
+  @GeneratedValue(generator = "SEQ_GEN")
+  @SequenceGenerator(name = "SEQ_GEN", sequenceName = "SEQ_FOODDRINK")
+  public long getId() {
+    return this.id;
+  }
+ 
+  public void setId(long id) {
+    this.id = id;
+  }
+ 
+  ...
+}
+
+...
+
+@Entity
+public class Drink extends FoodDrink {
+    
+  private boolean alcoholic;
+ 
+  public boolean isAlcoholic() {
+    return alcoholic;
+  }
+ 
+  public void setAlcoholic(boolean alcoholic) {
+    this.alcoholic = alcoholic;
+  }
+}
+----
+To specify how to map the class hierarchy, the +@Inheritance+ annotation is used. Its element +strategy+ defines which type of mapping is used and can have the following values: +InheritanceType.SINGLE_TABLE+ (= one table per hierarchy), +InheritanceType.TABLE_PER_CLASS+ (= one table per subclass) and +InheritanceType.JOINED+ (= one table per subclass, joined tables).
+          
+As a best practice we advise you to avoid deep class hierarchies among entity classes (unless they reduce complexity).
+
+=== Concurrency Control
+The concurrency control defines the way concurrent access to the same data of a database is handled. When several users (or threads of application servers) concurrently accessing a database, anomalies may happen, e.g. a transaction is able to see changes from another transaction although that one did not jet commit these changes. Most of these anomalies are automatically prevented by the database system, depending on the http://en.wikipedia.org/wiki/Isolation_(database_systems)[_isolation level_] (property +hibernate.connection.isolation+ in the +jpa.xml+, see http://docs.jboss.org/hibernate/orm/3.3/reference/en/html/session-configuration.html[here]).
+
+A remaining anomaly is when two stakeholders concurrently access a record, do some changes and write them back to the database. The JPA addresses this with different locking strategies (see http://www.objectdb.com/java/jpa/persistence/lock[here] or https://weblogs.java.net/blog/2009/07/30/jpa-20-concurrency-and-locking[here]).
+
+As a best practice we are using optimistic locking for regular end-user link:guide-service-layer[services] (OLTP) and pessimistic locking for link:guide-batch-layer[batches].
+
+==== Optimistic Locking
+The class +io.oasp.module.jpa.persistence.api.AbstractPersistenceEntity+ already provides optimistic locking via a +modificationCounter+ with the +@Version+ annotation. Therefore JPA takes care of optimistic locking for you. When entities are transferred to clients, modified and sent back for update you need to ensure the +modificationCounter+ is part of the game. If you follow our guides about link:guide-transferobject[transfer-objects] and link:guide-service-layer[services] this will also work out of the box.
+You only have to care about two things:
+
+* How to deal with optimistic locking in xref:relationships[relationships]? +
+Assume an entity +A+ contains a collection of +B+ entities. Should there be a locking conflict if one user modifies an instance of +A+ while another user in parallel modifies an instance of +B+ that is contained in the other instance? To take influence besides placing collections take a look at https://oasp.github.io/oasp4j/1.1.0/maven/apidocs/io/oasp/module/jpa/dataaccess/api/GenericDao.html#forceIncrementModificationCounter(E)[GenericDao.forceIncrementModificationCounter].
+* What should happen in the UI if an +OptimisticLockException+ occurred? +
+According to KISS our recommendation is that the user gets an error displayed that tells him to do his change again on the recent data. Try to design your system and the work processing in a way to keep such conflicts rare and you are fine.
+
+==== Pessimistic Locking
+For back-end link:guide-service-layer[services] and especially for link:guide-batch-layer[batches] optimistic locking is not suitable. A human user shall not cause a large batch process to fail because he was editing the same entity. Therefore such use-cases use pessimistic locking what gives them a kind of priority over the human users.
+In your xref:data-access-object[DAO] implementation you can provide methods that do pessimistic locking via http://docs.oracle.com/javaee/6/api/javax/persistence/EntityManager.html[+EntityManager+] operations that take a http://docs.oracle.com/javaee/6/api/javax/persistence/LockModeType.html[+LockModeType+]. Here is a simple example:
+[source,java]
+----
+  getEntityManager().lock(entity, LockModeType.READ);
+----
+When using the +lock(Object, LockModeType)+ method with +LockModeType.READ+, Hibernate will issue a +select ... for update+. This means that no one else can update the entity (see http://docs.oracle.com/cd/B28359_01/server.111/b28286/statements_10002.htm[here] for more information on the statement). If +LockModeType.WRITE+ is specified, Hibernate issues a +select ... for update nowait+ instead, which has has the same meaning as the statement above, but if there is already a lock, the program will not wait for this lock to be release. Instead, an exception is raised. +
+Use one of the types if you want to modify the entity later on, for read only access no lock is required.
+        
+As you might have noticed, the behavior of Hibernate deviates from what one would expect by looking at the +LockModeType+ (especially +LockModeType.READ+ should not cause a +select ... for update+ to be issued). The framework actually deviates from what is http://docs.oracle.com/javaee/6/api/javax/persistence/LockModeType.html[specified] in the JPA for unknown reasons.
+
+=== Database Auditing
+See link:guide-auditing[auditing guide].
+
+=== Testing Entities and DAOs
+See link:guide-testing#integration-testing[testing guide].
+
+=== Principles
+We strongly recommend these principles:
+
+* Use the JPA where ever possible and use vendor (hibernate) specific features only for situations when JPA does not provide a solution. In the latter case consider first if you really need the feature.
+* Create your entities as simple POJOs and use JPA to annotate the getters in order to define the mapping.
+* Keep your entities simple and avoid putting advanced logic into entity methods.
+
+== Database Configuration
+The link:guide-configuration[configuration] for spring and hibernate is already provided by OASP in our sample application and the application template. So you only need to worry about a few things to customize.
+
+=== Database System and Access
+Obviously you need to configure which type of database you want to use as well as the location and credentials to access it. The defaults are configured in +application-default.properties+ that is bundled and deployed with the release of the software. It should therefore contain the properties as in the given example:
+
+[source, properties]
+----
+  database.url=jdbc:postgresql://database.enterprise.com/app
+  database.user.login=appuser01
+  database.hibernate.dialect = org.hibernate.dialect.PostgreSQLDialect
+  database.hibernate.hbm2ddl.auto=validate
+----
+
+The environment specific settings (especially passwords) are configured by the operators in +application.properties+. For further details consult the link:guide-configuration[configuration guide]. It can also override the default values. The relevant configuration properties can be seen by the following example for the development environment (located in +src/test/resources+):
+
+[source, properties]
+----
+  database.url=jdbc:postgresql://localhost/app
+  database.user.password=************
+  database.hibernate.hbm2ddl.auto=create
+----
+
+For further details about +database.hibernate.hbm2ddl.auto+ please see https://docs.jboss.org/hibernate/orm/3.3/reference/en-US/html/session-configuration.html#configuration-misc-properties[here]. For production and acceptance environments we use the value +validate+ that should be set as default.
+
+=== Database Migration
+See link:guide-database-migration[database migration guide].
+
+== Security
+=== SQL-Injection
+A common link:guide-security[security] threat is http://en.wikipedia.org/wiki/SQL_injection[SQL-injection]. Never build queries with string concatenation or your code might be vulnerable as in the following example:
+[source, java]
+----
+  String query = "Select op from OrderPosition op where op.comment = " + userInput;
+  return getEntityManager().createQuery(query).getResultList();
+----
+Via the parameteter +userInput+ an attacker can inject SQL (JPQL) and execute arbitrary statements in the database causing extreme damage. In order to prevent such injections you have to strictly follow our rules for xref:queries[queries]: Use named queries for static queries and QueryDSL for dynamic queries. Please also consult the https://www.owasp.org/index.php/SQL_Injection_Prevention_Cheat_Sheet[SQL Injection Prevention Cheat Sheet].
+
+=== Limited Permissions for Application
+We suggest that you operate your application with a database user that has limited permissions so he can not modify the SQL schema (e.g. drop tables). For initializing the schema (DDL) or to do schema migrations use a separate user that is not used by the application itself.

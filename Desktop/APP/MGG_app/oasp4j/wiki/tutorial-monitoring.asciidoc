@@ -1,0 +1,3 @@
+= Monitoring
+
+Explain how to use Logging (refer to the plattform guide)

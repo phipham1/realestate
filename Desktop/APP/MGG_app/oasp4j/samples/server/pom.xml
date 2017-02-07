@@ -1,0 +1,105 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>io.oasp.java.dev</groupId>
+    <artifactId>oasp4j-samples</artifactId>
+    <version>dev-SNAPSHOT</version>
+  </parent>
+  <groupId>io.oasp.java.samples</groupId>
+  <artifactId>oasp4j-sample-server</artifactId>
+  <packaging>war</packaging>
+  <name>${project.artifactId}</name>
+  <description>Server for the restaurant application - a simple example using the Open Application Standard Platform for Java (OASP4J).</description>
+
+  <properties>
+      <java.version>1.7</java.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>oasp4j-sample-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <!-- CLIENT JAR DEPENDENCY -->
+    <dependency>
+      <groupId>io.oasp.js</groupId>
+      <artifactId>oasp4js-sample</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
+      <type>zip</type>
+      <classifier>web</classifier>
+      <scope>runtime</scope>
+    </dependency>
+    <!-- END CLIENT JAR DEPENDENCY -->
+
+ </dependencies>
+
+  <profiles>
+    <profile>
+      <id>jsclient</id>
+      <activation>
+        <!--<activeByDefault>true</activeByDefault>-->
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
+  <build>
+    <resources>
+      <resource>
+        <directory>${project.basedir}/src/main/resources</directory>
+      </resource>
+      <resource>
+        <directory>${js.client.dir}/dist</directory>
+        <targetPath>static</targetPath>
+      </resource>
+    </resources>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+            <configuration>
+              <mainClass>io.oasp.gastronomy.restaurant.SpringBootApp</mainClass>
+              <classifier>bootified</classifier>
+              <finalName>${project.artifactId}</finalName>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- CLIENT PLUGIN -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-war-plugin</artifactId>
+        <configuration>
+          <overlays>
+            <overlay>
+              <groupId>io.oasp.js</groupId>
+              <artifactId>oasp4js-sample</artifactId>
+              <type>zip</type>
+              <classifier>web</classifier>
+              <targetPath>jsclient</targetPath>
+            </overlay>
+          </overlays>
+        </configuration>
+      </plugin>
+      <!-- END CLIENT PLUGIN -->
+    </plugins>
+  </build>
+
+</project>

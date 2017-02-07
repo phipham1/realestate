@@ -1,0 +1,5 @@
+io\oasp\module\jpa\dataaccess\base\TestEntity.class
+io\oasp\module\jpa\dataaccess\base\AbstractGenericDaoTest.class
+io\oasp\module\jpa\dataaccess\base\AbstractGenericDaoTest$GenericDaoForceIncrementModificationTestBean.class
+io\oasp\module\jpa\dataaccess\base\TestDao.class
+io\oasp\module\jpa\dataaccess\base\TestDaoImpl.class

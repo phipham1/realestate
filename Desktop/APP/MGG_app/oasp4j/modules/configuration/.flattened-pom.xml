@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.oasp.java.modules</groupId>
+  <artifactId>oasp4j-configuration</artifactId>
+  <version>2.2.0-SNAPSHOT</version>
+  <name>oasp4j-configuration</name>
+  <description>Configuration Module of the Open Application Standard Platform for Java (OASP4J).</description>
+  <url>http://oasp.io/oasp4j/maven/oasp4j/oasp4j-modules/oasp4j-configuration</url>
+  <inceptionYear>2014</inceptionYear>
+  <organization>
+    <name>OASP-Team</name>
+    <url>http://oasp.io/oasp4j/maven/team-list.html</url>
+  </organization>
+  <licenses>
+    <license>
+      <name>Apache Software Licenese</name>
+      <url>http://oasp.github.io/terms-of-use.html</url>
+      <distribution>repo</distribution>
+      <comments></comments>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <id>hohwille</id>
+      <name>Jörg Hohwiller</name>
+      <email>hohwille@users.sourceforge.net</email>
+      <organization></organization>
+      <organizationUrl></organizationUrl>
+      <roles>
+        <role>admin</role>
+        <role>designer</role>
+        <role>developer</role>
+      </roles>
+      <timezone>+1</timezone>
+    </developer>
+    <developer>
+      <id>ksobkowiak</id>
+      <name>Krzysztof Sobkowiak</name>
+      <email>sobkowiak@onet.eu</email>
+      <organization></organization>
+      <organizationUrl></organizationUrl>
+      <roles>
+        <role>admin</role>
+        <role>designer</role>
+        <role>developer</role>
+      </roles>
+      <timezone>+1</timezone>
+    </developer>
+  </developers>
+  <scm>
+    <url>https://github.com/oasp/oasp4j/tree/develop/oasp4j-modules/oasp4j-configuration</url>
+  </scm>
+  <issueManagement>
+    <system>GitHub</system>
+    <url>https://github.com/oasp/oasp4j/issues</url>
+  </issueManagement>
+  <distributionManagement>
+    <repository>
+      <id>oasp.releases</id>
+      <name>OASP Releases</name>
+      <url>http://oasp-ci.cloudapp.net/nexus/content/repositories/releases/</url>
+    </repository>
+    <snapshotRepository>
+      <id>oasp.snapshots</id>
+      <name>OASP Snapshots</name>
+      <url>http://oasp-ci.cloudapp.net/nexus/content/repositories/snapshots/</url>
+    </snapshotRepository>
+    <site>
+      <id>oasp-site</id>
+      <url>file://C:\Users\phipham\Desktop\Capgemini\03_Projekte\aktuelle Projekte\03_Immediate Projekt\30_MGG_Jenkins\OASP_APP\igovlab\oasp4j/target/oasp4j/maven/oasp4j-modules/oasp4j-configuration</url>
+    </site>
+  </distributionManagement>
+  <dependencies>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.7.16</version>
+      <scope>compile</scope>
+    </dependency>
+  </dependencies>
+</project>

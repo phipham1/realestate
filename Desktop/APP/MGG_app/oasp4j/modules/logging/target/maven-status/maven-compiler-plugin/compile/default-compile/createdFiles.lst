@@ -1,0 +1,6 @@
+io\oasp\module\logging\common\impl\SingleLinePatternLayout.class
+io\oasp\module\logging\common\impl\DiagnosticContextFilter.class
+io\oasp\module\logging\common\impl\PerformanceLogFilter.class
+io\oasp\module\logging\common\api\DiagnosticContextFacade.class
+io\oasp\module\logging\common\api\LoggingConstants.class
+io\oasp\module\logging\common\impl\DiagnosticContextFacadeImpl.class

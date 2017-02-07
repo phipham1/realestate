@@ -1,0 +1,233 @@
+:toc: macro
+toc::[]
+
+= Creating a new application
+
+== Running the archetype
+
+In order to create a new application you must use the archetype provided by oasp4j who uses the maven archetype functionality.
+
+To use the archetype provided by oasp4j you can choose between 2 alternatives, create it from command line or, in more visual manner, within eclipse.
+
+
+=== From command Line
+To create a new application from command line, you must execute the next command
+
+For only war packaging (argumens before archetype:generate identifies oasp artifact): 
+
+[source,bash]
+---- 
+mvn -DarchetypeVersion=2.0.0 -DarchetypeGroupId=io.oasp.java.templates -DarchetypeArtifactId=oasp4j-template-server archetype:generate -DgroupId=io.oasp.application -DartifactId=sampleapp -Dversion=0.1-SNAPSHOT -Dpackage=io.oasp.application.sampleapp
+---- 
+
+For war and ear packaging (argumens before archetype:generate identifies oasp artifact): 
+[source]
+---- 
+mvn -DarchetypeVersion=2.0.0 -DarchetypeGroupId=io.oasp.java.templates -DarchetypeArtifactId=oasp4j-template-server archetype:generate -DgroupId=io.oasp.application -DartifactId=sampleapp -Dversion=0.1-SNAPSHOT -Dpackage=io.oasp.application.sampleapp 
+-DearProjectName=enterprise-ear
+---- 
+
+=== From Eclipse
+To create a new application, you should have installed OASP IDE. After that, you should follow this Eclipse steps to create your application:
+
+* Create a new Maven Project.
+* Choose the oas4j-template-server archetype, just like the image.
+
+[[img-tutorial-new-app]]
+.maven-archetype
+image::images/maven-archetype.png["maven-archetype", width="450", link="images/maven-archetype.png"]
+
+&#160; +
+* Fill the Group Id, Artifact Id, Version and Package for your project.
+If you want to add an EAR generation mechanism to your project, you should fill the property earProjectName with the value Artifact Id + "-ear". For example, "sampleapp-ear". If you only want to WAR generation, you can remove the property earProjectName.
+
+[[img-tutorial-new-app]]
+.maven-new-app
+image::images/maven-new-app.png["maven-new-app", width="450", link="images/maven-new-app.png"]
+
+&#160; +
+* Finish the Eclipse assistant and you are ready to start your project.
+
+== What is generated
+
+OASP archetype generates a Maven Modules Project. It has 3 Maven Modules and a pom.xml file:
+
+* xxx-core: This Maven Module Project constains the different Java classes in our application and the application configuration (beans definition, security configuration, access to database configuration, etc).
+
+* xxx-ear: This module is responsible to packaging the application as a EAR file.
+
+* xxx-server: This module is the responsible to package the application as a WAR file. It has as a dependency the core module.
+
+* pom.xml: 
+
+** Properties definition: Spring-boot version, Java version, server port, database port.
+
+** Modules definition: Imports for 3 modules (core, EAR and server).
+
+** Dependency Management: Spring-boot, OASP4J-BOM and JUnit dependencies.
+
+** Maven plugin compiler to compile the application to desired Java version.
+
+** Profiles for Testing??? TODO
+
+=== Core Module
+
+Core module constains the base classes and the base configuration for the application. We are going to describe each Java file and each XML configuration file that archetype has generated.
+
+==== Java 
+
+Those are the different Java files contained in each package:
+
+* general.common
+
+[options="header"]
+[cols="40,60"]
+|=============================================
+|*File*   |*Descripcion*
+|api.ApplicationEntity.java|Abstract interface for a MutableGenericEntity of this application.
+|api.BinaryObject.java|Interface for a BinaryObject.
+|api.NlsBundleApplicationRoot.java|NlsBundle for this application.
+|api.Usermanagement.java|Interface to get a user from its login.
+|api.UserProfile.java|Interface for the profile of a logged user.
+|api.constants.PermissionConstants.java|Constants for AccessControlPermission´s keys.
+|api.datatype.Role.java|Enum for roles.
+|api.exception.ApplicationBusinessException.java|Abstract business main exception.
+|api.exception.ApplicationException.java|Abstract main exception.
+|api.exception.ApplicationTechnicalException.java|Abstract technical main exception.
+|api.exception.IllegalEntityStateException.java|Manage entities illegal state exceptions.
+|api.exception.IllegalPropertyChangeException.java|Manage entities illegal property changes exceptions.
+|api.exception.NoActiveUserException.java| Manage exceptions when user require to be logged in.
+|api.security.UserData.java|Container class for the profile of a user.
+|api.to.AbstractCto.java|Abstract class for Composite Transfer Object.
+|api.to.AbstractEto.java|Abstract class for Entity Transfer Object.
+|api.to.AbstractTo.java|Abstract class for a plain Transfer Object.
+|api.to.SearchCriteriaTo.java|Abstract class for a Transfer Object with the criteria for a search query.
+|api.to.UserDetailsClientTo.java|.
+|base.AbstractBeanMapperSupport.java|Provides access to the BeanMapper.
+|impl.security.ApplicationAuthenticationProvider.java|Responsible for the security aspects of authentication.
+|impl.security.
+PrincipalAccessControlProviderImpl.java|Implementation of PrincipalAccessControlProvider.
+
+|=============================================
+
+* general.dataaccess
+
+[options="header"]
+|=============================================
+|*File* | *Descripcion*
+|api.ApplicationPersistenceEntity.java|Abstract Entity for all Entities with an id and a version field.
+|api.BinaryObjectEntity.java|BinaryObject entity.
+|api.dao.ApplicationDao.java|Interface for all DAOs of the application.
+|api.dao.ApplicationRevisionedDao.java|Interface for all revisioned DAOs of the application.
+|api.dao.BinaryObjectDao.java|DAO for BinaryObject entity.
+
+|=============================================
+
+* general.gui.api
+
+[options="header"]
+|=============================================
+| *File* | *Descripcion*
+|LoginController.java|Controller for login page.
+
+|=============================================
+
+* general.logic
+
+[options="header"]
+|=============================================
+|*File* | *Descripcion*
+|api.UseCase.java|Annotation to mark all use-cases.
+|api.to.BinaryObjectEto.java|ETO for a BinaryObject.
+|base.AbstractUc.java|Abstract base class for any use case in the application.
+|base.UcManageBinaryObject.java|Use case for managing BinaryObject.
+|impl.UcManageBinaryObjectImpl.java|Implementation of the UcManageBinaryObject interface.
+|impl.UsermanagementDummyImpl.java|Implementation of Usermanagement.
+
+|=============================================
+
+* general.service.impl.rest
+
+[options="header"]
+|=============================================
+| *File* | *Descripcion*
+|ApplicationAccessDeniedHandler.java|Class to manage denied access.
+|ApplicationObjectMapperFactory.java| MappingFactory class to resolve polymorphic conflicts within the application.
+|SecurityRestServiceImpl.java|Class that represents REST service for security.
+
+|=============================================
+
+==== Resources
+
+Those are the different XML files contained in resources folder:
+
+* config
+
+[options="header"]
+|=============================================
+|*File* | *Descripcion*
+|app.common.beans-common.xml|Constains beans definition for application common beans like propertyConfigurer bean.
+|app.common.beans-dozer.xml|Beans relationated with Dozer Mappers.
+|app.common.dozer-mapping.xml|Dozer mapping configuration.
+|app.dataaccess.beans-dataaccess.xml|Parent from the other data access files.
+|app.dataaccess.beans-db-plain.xml|Data source configuration for profile `db-plain` (testing).
+|app.dataaccess.beans-db-server.xml|Data source configuration for profile distinct to `db-plain.`
+|app.dataaccess.beans-jpa.xml|Contains neccessary beans to configure JPA.
+|app.dataaccess.NamedQueries.xml|
+|app.gui.dispatcher-servlet.xml|
+|app.logic.beans-logic.xml|Component scan configuration for classes in `logic` path.
+|app.security.access-control-schema.xml|
+|app.security.beans-security-filters.xml|Security filters definition.
+|app.security.beans-security.xml|Application security configuration.
+|app.service.beans-monitoring.xml|
+|app.service.beans-service.xml|Importing configuration files, REST beans definition and configuration.
+|app.websocket.websocket-context.xml|Scan component package definition for websockects.
+|app.application.default.properties|Default application properties values.
+|app|beans-application|Root file configuration. It starts the chain and imports other configuration files.
+|env|application|Specific application properties values.
+
+|=============================================
+
+* db
+
+[options="header"]
+|=============================================
+|*File* | *Descripcion*
+|migration.V0001__Create_schema.slq|Script template to create the database schema and tables definition.
+
+|=============================================
+
+==== Test
+
+Those are different Java files to serve as base classes in testing:
+
+* general.common
+
+[options="header"]
+|=============================================
+|*File* | *Descripcion*
+|AbstractSpringIntegrationTest.java|.
+|AccessControlSchemaXmlValidationTest.java|Tests if the access-control-schema.xml is valid.
+|PermissionCheckTest.java|Test to check if all relevant methods in use case implementations have permission checks.
+
+|=============================================
+
+=== Server Module
+
+This module is constains two files:
+
+* lockback.xml: This file is in the resources folder and it is the resposinble to configure the log.
+
+* pom.xml: This file has Maven configuration for packaging the application as a WAR. Also, this file has a profile to package the Javascript client ZIP file into the WAR.
+
+=== EAR Module
+
+This module only contains a pom.xml file to packaging the application as EAR from the WAR generated.
+
+== Database configuration and creation
+
+Including driver installation if oracle or other db is required.
+
+== Editing the pom.xml
+
+How to edit the pom.xml file for the project to add dependencies and modules for the application.

@@ -1,0 +1,6 @@
+io\oasp\module\rest\service\impl\json\ObjectMapperFactory.class
+io\oasp\module\rest\service\impl\json\MixInAnnotationsModule$JacksonPolymorphicAnnotation.class
+io\oasp\module\rest\service\impl\RestServiceExceptionFacade.class
+io\oasp\module\rest\service\api\RequestParameters.class
+io\oasp\module\rest\service\impl\json\AbstractJsonDeserializer.class
+io\oasp\module\rest\service\impl\json\MixInAnnotationsModule.class

@@ -1,0 +1,57 @@
+<div>
+    <div class="modal-header">
+        <h3 class="modal-title" translate>Neuen Nutzer anlegen</h3>
+    </div>
+    <div class="modal-body">
+        <form name="tableForm">
+
+            <div class="row">
+                <div class="col-md-2">
+                    <label translate>Nutzername</label>&nbsp;
+                </div>
+                <div class="col-md-4">
+					<input type="text" name="userId" ng-model="UCC.user.userId" required />
+					<span class="error" ng-show="tableForm.userId.$touched && tableForm.userId.$invalid">The user identifier is required.</span>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-2">
+                    <label translate>Vorname</label>&nbsp;
+                </div>
+                <div class="col-md-4">
+					<input type="text" name="firstName" ng-model="UCC.user.firstName" required />
+					<span class="error" ng-show="tableForm.firstName.$touched && tableForm.firstName.$invalid">The first name is required.</span>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-2">
+                    <label translate>Nachname</label>&nbsp;
+                </div>
+                <div class="col-md-4">
+					<input type="text" name="lastName" ng-model="UCC.user.lastName" required />
+					<span class="error" ng-show="tableForm.lastName.$touched && tableForm.lastName.$invalid">The last name is required.</span>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-2">
+                    <label translate>Passwort</label>&nbsp;
+                </div>
+                <div class="col-md-4">
+					<input type="password" name="password" ng-model="UCC.user.password" required />
+					<span class="error" ng-show="tableForm.password.$touched && tableForm.password.$invalid">The password is required.</span>
+                </div>
+            </div>
+
+            <div class="row">
+		        <button class="btn btn-primary" ng-click="UCC.submit()" ng-disabled="tableForm.userId.$invalid || tableForm.firstName.$invalid || tableForm.lastName.$invalid">
+                    Submit
+        		</button>
+        		<button class="btn btn-warning" ng-click="UCC.goToSearchView()">Cancel</button>
+        	</div>
+
+        </form>
+    </div>
+
+    <div class="modal-footer">
+    </div>
+</div>

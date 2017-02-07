@@ -1,0 +1,359 @@
+:toc: macro
+toc::[]
+
+= Security
+
+Security is todays most important cross-cutting concern of an application and an enterprise IT-landscape. We seriously care about security and give you detailed guides to prevent pitfalls, vulnerabilities, and other disasters. While many mistakes can be avoided by following our guidelines you still have to consider security and think about it in your design and implementation. The security guides provided by this document will not automatically prevent you from any harm, but they may give you hints and best practices already used in different software products.
+
+== Authentication
+Definition:
+
+> Authentication is the verification that somebody interacting with the system is the actual subject for whom he claims to be.
+
+The one authenticated is properly called _subject_ or http://docs.oracle.com/javase/7/docs/api/java/security/Principal.html[_principal_]. However, for simplicity we use the common term _user_ even though it may not be a human (e.g. in case of a service call from an external system).
+
+To prove his authenticity the user provides some secret called _credentials_. The most simple form of credentials is a password.
+
+NOTE: Please never implement your own authentication mechanism or credential store. You have to be aware of implicit demands such as salting and hashing credentials, password life-cycle with recovery, expiry, and renewal including email notification confirmation tokens, central password policies, etc. This is the domain of access managers and identity management systems. In a business context you will typically already find a system for this purpose that you have to integrate (e.g. via LDAP).
+
+oasp4j uses Spring Security as a framework for authentication purposes. Therefore you need to define an authentication provider implementing the `org.springframework.security.authentication.AuthenticationProvider` interface from Spring Security. The implemented authentication provider can be registered as main authentication provider using the authentication-manager declaration.
+[source,xml]
+----
+<beans:beans xmlns="http://www.springframework.org/schema/security" xmlns:beans="http://www.springframework.org/schema/beans">
+
+  <beans:bean id="restaurantAuthenticationProvider"
+              class="io.oasp.gastronomy.restaurant.general.common.api.security.ServletAuthenticationProvider"/>
+
+  <authentication-manager alias="restaurantAuthenticationManager" erase-credentials="false">
+    <authentication-provider ref="restaurantAuthenticationProvider"/>
+  </authentication-manager>
+</beans:beans>
+----
+
+=== Mechanisms
+
+==== Basic
+Http-Basic authentication can be easily implemented with this configuration:
+
+[source,xml]
+----
+<http auto-config="true" use-expressions="true">
+  ...
+  <http-basic/>
+  ...
+</http>
+----
+
+==== Form Login
+For a form login the spring security implementation might look like this:
+
+[source,xml]
+----
+<http auto-config="false" use-expressions="true">
+    ...
+    <form-login login-page="/login" authentication-failure-url="/login?authentication_failed=1"
+      login-processing-url="/j_spring_security_login" default-target-url="/services"/>
+    <logout logout-url="/j_spring_security_logout" logout-success-url="/login?logout=1" invalidate-session="true"/>
+    <access-denied-handler error-page="/login?access_denied=1"/>
+    ...
+</http>
+----
+
+The interesting part is, that there is a login-processing-url, which should be adressed to handle the internal spring security authentication and similarly there is a logout-url, which has to be called to logout a user.
+
+=== Preserve original request anchors after form login redirect
+Spring Security will automatically redirect any unauthorized access to the defined login-page. After sucuessful login, the user will be redirected to the original requested URL. The only pitfall is, that anchors in the request URL will not be transmitted to server and thus cannot be restored after successful login. Therefore the oasp4j-security module provides the RetainAnchorFilter, which is able to inject javascript code to the source page and to the target page of any redirection. Using javascript this filter is able to retrieve the requested anchors and store them into a cookie. Heading the target URL this cookie will be used to restore the original anchors again.
+
+To enable this mechanism you have to integrate the RetainAnchorFilter as follows:
+First, declare the filter with 
+
+* `storeUrlPattern`: an regular expression matching the URL, where anchors should be stored
+* `restoreUrlPattern`: an regular expression matching the URL, where anchors should be restored
+* `cookieName`: the name of the cookie to save the anchors in the intermediate time
+
+[source,xml]
+----
+<beans:bean id="retainAnchorFilter" class="io.oasp.module.security.common.web.api.RetainAnchorFilter">
+    <!-- first [^/]+ part describes host name and possibly port, second [^/]+ is the application name -->
+    <beans:property name="storeUrlPattern" value="http://[^/]+/[^/]+/login.*"/>
+    <beans:property name="restoreUrlPattern" value="http://[^/]+/[^/]+/.*"/>
+    <beans:property name="cookieName" value="TARGETANCHOR"/>
+</beans:bean>
+----
+
+Second, register the filter as first filter in the request filter chain. You might want to use the before="FIRST" or after="FIRST" attribute if you have multiple request filters, which should be run before the default filters.
+
+.simple Spring Security filter insertion
+[source,xml]
+----
+<http auto-config="false" use-expressions="true">
+    <custom-filter ref="retainAnchorFilter" after="FIRST"/>
+</http>
+----
+
+Nevertheless, the oasp4j follows a different approach. The simple interface of Spring Security for inserting custom filters as stated above is driven by a relative alignment of the different filters been executed. You relatively can insert custom filters before or after existing ones and also at the beginning or at the end. You might easily see, that the real filter chain will get more and more invisible. Thus the oasp4j follows the default ordering of the Spring Security filter chain, such that it gets more transparent for any developer, which filters will be executed in which order and at which position a new custom filter may be inserted.
+
+This documentation depends on Spring Security v3.2.5.RELEASE:
+
+* http://docs.spring.io/spring-security/site/docs/3.2.5.RELEASE/reference/htmlsingle/#filter-ordering[general filter ordering]
+* http://docs.spring.io/spring-security/site/docs/3.2.5.RELEASE/reference/htmlsingle/#ns-custom-filters[detailed filter ordering]
+
+These lists will be maintained each release, which will include a Spring Security upgrade. Thus first, we will not loose any changes from the possibly updated default filter chain of Spring Security. Second, due to the absolute declaration of the filter order, you might not get any strange behavior in your system after upgrading to a new version of Spring Security.
+
+=== Users vs. Systems
+If we are talking about authentication we have to distinguish two forms of principals:
+
+* human users
+* autonomous systems
+
+While e.g. a Kerberos/SPNEGO Single-Sign-On makes sense for human users it is pointless for authenticating autonomous systems. So always keep this in mind when you design your authentication mechanisms and separate access for human users from access for systems.
+
+== Authorization
+
+**Definition:**
+
+> Authorization is the verification that an authenticated user is allowed to perform the operation he intends to invoke.
+
+=== Clarification of terms
+
+For clarification we also want to give a common understanding of related terms that have no unique definition and consistent usage in the wild.
+
+.Security terms related to authorization
+[options="header", cols="15%,85%"]
+|=======================
+|*Term*|*Meaning and comment*
+|Permission|A permission is an object that allows a principal to perform an operation in the system. This permission can be _granted_ (give) or _revoked_ (taken away). Sometimes people also use the term _right_ what is actually wrong as a right (such as the right to be free) can not be revoked.
+|Group|We use the term group in this context for an object that contains permissions. A group may also contain other groups. Then the group represents the set of all recursively contained permissions.
+|Role|We consider a role as a specific form of group that also contains permissions. A role identifies a specific function of a principal. A user can act in a role.
+
+For simple scenarios a principal has a single role associated. In more complex situations a principal can have multiple roles but has only one active role at a time that he can choose out of his assigned roles. For KISS it is sometimes sufficient to avoid this by creating multiple accounts for the few users with multiple roles. Otherwise at least avoid switching roles at runtime in clients as this may cause problems with related states. Simply restart the client with the new role as parameter in case the user wants to switch his role.
+| Access Control | Any permission, group, role, etc., which declares a control for access management.
+|=======================
+
+=== Suggestions on the access model
+The access model provided by oasp4j-security follows this suggestions:
+
+* Each Access Control (permission, group, role, ...) is uniquely identified by a human readable string.
+* We create a unique permission for each use-case.
+* We define groups that combine permissions to typical and useful sets for the users.
+* We define roles as specific groups as required by our business demands.
+* We allow to associate users with a list of Access Controls.
+* For authorization of an implemented use case we determine the required permission. Furthermore, we determine the current user and verify that the required permission is contained in the tree spanned by all his associated Access Controls. If the user does not have the permission we throw a security exception and thus abort the operation and transaction.
+* We try to avoid negative permissions, that is a user has no permission by default but only those granted to him additively permit him for executing use cases.
+* Technically we consider permissions as a secret of the application. Administrators shall not fiddle with individual permissions but grant them via groups. So the access management provides a list of strings identifying the Access Controls of a user. The individual application itself contains these Access Controls in a structured way, whereas each group forms a permission tree.
+
+=== oasp4j-security
+
+The OASP provides a ready to use module +oasp4j-security+ that is based on http://projects.spring.io/spring-security/[spring-security] and makes your life a lot easier.
+
+.OASP4J Security Model
+image::images/Security-AccessControl.png["access-control", width="450", link="images/Security-AccessControl.png"]
+
+The diagram shows the model of +oasp4j-security+ that separates two different aspects:
+
+* The _Indentity- and Access-Management_ is provided by according products and typically already available in the enterprise landscape (e.g. an active directory). It provides a hierarchy of _primary access control objects_ (roles and groups) of a user. An administrator can grant and revoke permissions (indirectly) via this way.
+* The application security is using +oasp4j-security+ defines a hierarchy of _secondary access control objects_ (groups and permissions) in the file +access-control-schema.xml+ (see https://github.com/oasp/oasp4j/blob/develop/oasp4j-samples/oasp4j-sample-core/src/main/resources/config/app/security/access-control-schema.xml[example from sample app]). This hierarchy defines the application internal access control schema that should be an implementation secret of the application. Only the top-level access control objects are public and define the interface to map from the primary to secondary access control objects. This mapping is simply done by using the same names for access control objects to match.
+
+==== Access Control Schema
+
+The `oasp4j-security` module provides a simple and efficient way to define permissions and roles. The file `access-control-schema.xml` is used to define the mapping from groups to permissions. The general terms discussed above can be mapped to the implementation as follows:
+
+.General security terms related to oasp4j access control schema
+[options="header", cols="15%,15%,70%"]
+|=======================
+|*Term*|*oasp4j-security implementation*|*Comment*
+|Permission|`AccessControlPermission`|
+|Group|`AccessControlGroup`|When considering different levels of groups of different meanings, declare `type` attribute, e.g. as "group".
+|Role|`AccessControlGroup`|With `type="role"`.
+|Access Control|`AccessControl`| Super type that represents a tree of `AccessControlGroups` and `AccessControlPermissions`. If a principal "has" a `AccessControl` he also "has" all `AccessControls` with according permissions in the spanned sub-tree.
+|=======================
+
+.Example access-control-schema.xml
+[source,xml]
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<access-control-schema>
+  <group id="ReadMasterData" type="group">
+    <permissions>
+      <permission id="OfferManagement_GetOffer"/>
+      <permission id="OfferManagement_GetProduct"/>
+      <permission id="TableManagement_GetTable"/>
+      <permission id="StaffManagement_GetStaffMember"/>
+    </permissions>
+  </group>
+
+  <group id="Waiter" type="role">
+    <inherits>
+      <group-ref>Barkeeper</group-ref>
+    </inherits>
+    <permissions>
+      <permission id="TableManagement_ChangeTable"/>
+    </permissions>
+  </group>
+  ...
+</access-control-schema>
+----
+
+This example `access-control-schema.xml` declares
+
+* a group named `ReadMasterData`, which grants four different permissions, e.g., `OfferManagement_GetOffer`
+* a group named `Waiter`, which
+** also grants all permissions from the group `Barkeeper`
+** in addition grants the permission `TableManagement_ChangeTable`
+** is marked to be a `role` for further application needs.
+
+The oasp4j-security module automatically validates the schema configuration and will throw an exception if invalid.
+
+Unfortunately, Spring Security does not provide differentiated interfaces for authentication and authorization. Thus we have to provide an `AuthenticationProvider`, which is provided from Spring Security as an interface for authentication and authorization simultaneously.
+To integrate the oasp4j-security provided access control schema, you can simply inherit your own implementation from the oasp4j-security provided abstract class `AbstractAccessControlBasedAuthenticationProvider` and register your `ApplicationAuthenticationProvider` as an `AuthenticationManager`. Doing so, you also have to declare the two Beans `AccessControlProvider` and `AccessControlSchemaProvider` as listed below, which are precondition for the `AbstractAccessControlBasedAuthenticationProvider`.
+
+.Example integration of oasp4j-security access control schema
+[source,xml]
+----
+<bean id="AuthenticationManager" class="org.springframework.security.authentication.ProviderManager">
+    <constructor-arg>
+      <list>
+        <ref bean="ApplicationAuthenticationProvider"/>
+      </list>
+    </constructor-arg>
+</bean>
+  
+<bean id="AccessControlProvider" class="io.oasp.module.security.common.impl.accesscontrol.AccessControlProviderImpl"/>
+<bean id="AccessControlSchemaProvider" class="io.oasp.module.security.common.impl.accesscontrol.AccessControlSchemaProviderImpl"/>
+----
+
+==== Configuration on URL level
+
+The authorization (in terms of Spring security "access management") can be enabled seperately for different url patterns, the request will be matched against. The order of these url patterns is essential as the first matching pattern will declare the access restriction for the incoming request (see access attribute). Here an example:
+
+.Extensive example of authorization on URL level
+[source,xml]
+----
+<bean id="FilterSecurityInterceptor" class="org.springframework.security.web.access.intercept.FilterSecurityInterceptor">
+    <property name="authenticationManager" ref="AuthenticationManager"/>
+    <property name="accessDecisionManager" ref="FilterAccessDecisionManager"/>
+    <property name="securityMetadataSource">
+      <security:filter-security-metadata-source use-expressions="true">
+        <security:intercept-url pattern="/" access="isAnonymous()"/>
+        <security:intercept-url pattern="/index.jsp" access="isAnonymous()"/>
+        <security:intercept-url pattern="/security/login*" access="isAnonymous()"/>
+        <security:intercept-url pattern="/j_spring_security_login*" access="isAnonymous()"/>
+        <security:intercept-url pattern="/j_spring_security_logout*" access="isAnonymous()"/>
+        <security:intercept-url pattern="/services/rest/security/currentuser/" access="isAnonymous() or isAuthenticated()"/>
+        <security:intercept-url pattern="/**" access="isAuthenticated()"/>
+      </security:filter-security-metadata-source>
+    </property>
+</bean>
+  
+<bean id="FilterAccessDecisionManager" class="org.springframework.security.access.vote.UnanimousBased">
+    <constructor-arg>
+      <list>
+        <bean class="org.springframework.security.web.access.expression.WebExpressionVoter"/>
+      </list>
+    </constructor-arg>
+</bean>
+----
+
+==== Configuration on Java Method level
+As state of the art oasp4j will focus on role-based authorization to cope with authorization for executing use case of an application. 
+We will use the JSR250 annotations, mainly `@RolesAllowed`, for authorizing method calls against the permissions defined in the annotation body. This has to be done for each use-case method in logic layer. Here is an example:
+
+[source,java]
+----
+public class UcFindTableImpl extends AbstractTableUc implements UcFindTable {
+
+  @RolesAllowed(PermissionConstants.FIND_TABLE)
+  public TableEto findTable(Long id) {
+
+    return getBeanMapper().map(getTableDao().findOne(id), TableEto.class);
+  }
+}
+----
+Now this method can only be called if a user is logged-in that has the permission `FIND_TABLE`.
+
+//////////////////////////////////////////
+JH: IMHO too much options causing confusion. When necessary one can still study the spring-sec documentation.
+The jsr250 has to be enabled using the similarly named attribute of global-method-security.
+Custom authorization managers could be registered using the access-decision-manager-ref in the global-method-security. Here an example:
+
+.Extensive example of authorization using jsr250
+[source,xml]
+----
+<security:global-method-security pre-post-annotations="enabled" secured-annotations="enabled"
+    jsr250-annotations="enabled" access-decision-manager-ref="MethodAccessDecisionManager">
+</security:global-method-security>
+
+<bean id="MethodAccessDecisionManager" class="org.springframework.security.access.vote.UnanimousBased">
+    <constructor-arg>
+      <list>
+        <bean class="org.springframework.security.access.annotation.Jsr250Voter"/>
+      </list>
+    </constructor-arg>
+</bean>
+----
+//////////////////////////////////////////
+
+==== Check Data-based Permissions
+Currently, we have no best practices and reference implementations to apply permission based access on an application's data.
+Nevertheless, this is a very important topic due to the high standards of data privacy & protection especially in germany. We will further investigate this topic and we will adress it in one of the next releases. For further tracking have a look at https://github.com/oasp/oasp4j/issues/125[issue #125].
+
+
+== Vulnerabilities and Protection
+Independent from classical authentication and authorization mechanisms there are many common pitfalls that can lead to vulnerabilities and security issues in your application such as XSS, CSRF, SQL-injection, log-forging, etc. A good source of information about this is the https://www.owasp.org[OWASP].
+We address these common threats individually in _security_ sections of our technological guides as a concrete solution to prevent an attack typically depends on the according technology. The following table illustrates common threats and contains links to the solutions and protection-mechanisms provided by the OASP:
+
+.Security threats and protection-mechanisms
+[options="header"]
+|=======================
+|*Thread*|*Protection*|*Link to details*
+|https://www.owasp.org/index.php/Top_10_2013-A1-Injection[A1 Injection]
+|validate input, escape output, use proper frameworks
+|link:guide-dataaccess-layer#security[data-access-layer guide]
+
+|https://www.owasp.org/index.php/Top_10_2013-A2-Broken_Authentication_and_Session_Management[A2 Broken Authentication and Session Management]
+|encrypt all channels, use a central identity management with strong password-policy
+|xref:authentication[Authentication]
+
+|https://www.owasp.org/index.php/Top_10_2013-A3-Cross-Site_Scripting_(XSS)[A3 XSS]
+|prevent injection (see A1) for HTML, JavaScript and CSS and understand same-origin-policy
+|link:guide-client-layer#security[client-layer]
+
+|https://www.owasp.org/index.php/Top_10_2013-A4-Insecure_Direct_Object_References[A4 Insecure Direct Object References]
+|Using direct object references (IDs) only with appropriate authorization
+|link:guide-logic-layer#direct-object-references[logic-layer]
+
+|https://www.owasp.org/index.php/Top_10_2013-A5-Security_Misconfiguration[A5 Security Misconfiguration]
+|Use OASP application template and guides to avoid
+|http://repo1.maven.org/maven2/io/oasp/java/templates/[application template]
+
+|https://www.owasp.org/index.php/Top_10_2013-A6-Sensitive_Data_Exposure[A6 Sensitive Data Exposure]
+|Use secured exception facade, design your data model accordingly
+|link:guide-service-layer#rest-exception-handling[REST exception handling]
+
+|https://www.owasp.org/index.php/Top_10_2013-A7-Missing_Function_Level_Access_Control[A7 Missing Function Level Access Control]
+|Ensure proper authorization for all use-cases, use `@DenyAll` als default to enforce
+|xref:method-authorization[Method authorization]
+
+|https://www.owasp.org/index.php/Top_10_2013-A8-Cross-Site_Request_Forgery_(CSRF)[A8 CSRF]
+|secure mutable service operations with an explicit CSRF security token sent in HTTP header and verified on the server
+|link:guide-service-layer#csrf[service-layer security]
+
+|https://www.owasp.org/index.php/Top_10_2013-A9-Using_Components_with_Known_Vulnerabilities[A9 Using Components with Known Vulnerabilities]
+|subscribe to security newsletters, recheck products and their versions continuously, use OASP dependency management
+|https://cve.mitre.org/news/newsletter.html[CVE newsletter]
+
+|https://www.owasp.org/index.php/Top_10_2013-A10-Unvalidated_Redirects_and_Forwards[A10 Unvalidated Redirects and Forwards]
+|Avoid using redirects and forwards, in case you need them do a security audit on the solution.
+|OASP proposes to use rich-clients (SPA/RIA). We only use redirects for login in a safe way.
+
+|https://www.owasp.org/index.php/Log_Forging[Log-Forging]
+|Escape newlines in log messages
+|link:guide-logging#security[logging security]
+|=======================
+
+Tool for testing your web application against vulnerabilities: https://www.owasp.org/index.php/OWASP_Zed_Attack_Proxy_Project[OWASP Zed Attack Proxy Project]
+
+. Easy to Install 
+. Supports Different types of Fuzzer Based Tests
+. Details Results Reports
+. Convenient to carry out Test on Staging environment

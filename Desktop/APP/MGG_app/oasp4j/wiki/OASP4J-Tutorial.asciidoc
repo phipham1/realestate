@@ -1,0 +1,52 @@
+= Open Application Standard Platform for Java V1.2.0 Step-by-step tutorial
+Jörg Hohwiller <joerg.hohwiller@capgemini.com>
+v1.0
+:imagesdir: ./
+:footnote: test footnote from asciidoc
+:productname: test productname from asciidoc
+
+[preface]
+== Introduction
+The http://oasp.io[_Open Application Standard Platform_ (OASP)] provides a solution to building applications which combine best-in-class frameworks and libraries as well as industry proven practices and code conventions.
+It massively speeds up development, reduces risks and helps you to deliver better results.
+
+This tutorial is a practical way to get to know the Framework with an step by step aproach.
+
+
+:toc:
+
+include::tutorial-introduction[leveloffset=2]
+
+<<<<
+
+include::tutorial-environment[leveloffset=2]
+
+<<<<
+
+include::tutorial-sample[leveloffset=2]
+
+<<<<
+
+include::tutorial-newapp[leveloffset=2]
+
+<<<<
+
+include::tutorial-eclipse[leveloffset=2]
+
+<<<<
+
+include::tutorial-crud[leveloffset=2]
+
+<<<<
+
+include::tutorial-security[leveloffset=2]
+
+<<<<
+
+include::tutorial-monitoring[leveloffset=2]
+
+<<<<
+
+include::tutorial-packaging[leveloffset=2]
+
+<<<<

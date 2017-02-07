@@ -1,0 +1,120 @@
+= Open Application Standard Platform for Java V2.0.0
+Jörg Hohwiller <joerg.hohwiller@capgemini.com>
+v2.0.0
+:imagesdir: ./
+:footnote: test footnote from asciidoc
+:productname: test productname from asciidoc
+
+[preface]
+== Introduction
+The http://oasp.io[_Open Application Standard Platform_ (OASP)] provides a solution to building applications which combine best-in-class frameworks and libraries as well as industry proven practices and code conventions.
+It massively speeds up development, reduces risks and helps you to deliver better results.
+
+This document contains the complete compendium of the http://oasp.io/oasp4j[_Open Application Standard Platform for Java_ (OASP4J)]. From this link you will also find the latest release or nightly snapshot of this documentation.
+
+:toc:
+
+:leveloffset: 1
+include::architecture[]
+
+:leveloffset: 0
+
+== Coding
+:leveloffset: 2
+include::coding-conventions[]
+
+:leveloffset: 0
+
+== Layers
+:leveloffset: 2
+
+include::guide-client-layer[]
+
+<<<<
+
+include::guide-service-layer[]
+
+<<<<
+
+include::guide-logic-layer[]
+
+<<<<
+
+include::guide-dataaccess-layer[]
+
+<<<<
+
+include::guide-batch-layer[]
+
+:leveloffset: 0
+
+== Guides
+:leveloffset: 2
+
+include::guide-dependency-injection[]
+
+<<<<
+
+include::guide-configuration[]
+
+<<<<
+
+include::guide-logging[]
+
+<<<<
+
+include::guide-security[]
+
+<<<<
+
+include::guide-validation[]
+
+<<<<
+
+include::guide-auditing[]
+
+<<<<
+
+include::guide-aop[]
+
+<<<<
+
+include::guide-exceptions[]
+
+<<<<
+
+include::guide-i18n[]
+
+<<<<
+
+include::guide-xml[]
+
+<<<<
+
+include::guide-json[]
+
+<<<<
+
+include::guide-testing[]
+
+<<<<
+
+include::guide-transferobject[]
+
+<<<<
+
+include::guide-beanmapping[]
+
+<<<<
+
+include::guide-datatype[]
+
+<<<<
+
+include::guide-transactions[]
+
+<<<<
+
+include::guide-accessibility[]
+
+:leveloffset: 0

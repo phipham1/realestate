@@ -1,0 +1,122 @@
+This document compares the current OASP recommendations and sample with the OWASP Top 10 security vulnerabilities.
+
+= A1 Injection 
+
+Injection flaws, such as SQL, OS, and LDAP injection occur when untrusted data is sent to an interpreter as part of a command or query. The attacker’s hostile data can trick the interpreter into executing unintended commands or accessing data without proper authorization. 
+
+
+|====================
+|CH|OWASP ASVS 2.0|OASP|OK?|Comment
+|V5.10 L1|Verify that the runtime environment is not susceptible to SQL Injection, or that security controls prevent SQL Injection.|OASP4J V1.0.0, 3.4.3.1 SQL-Injection: Prevents 100% injections in static SQLs, gives advises how to handle dynamic SQLs|yes|
+|V5.11 L1|Verify that the runtime environment is not susceptible to LDAP Injection, or that security controls prevent LDAP Injection.|-|no|Spring Security with its ldap query builder could be already immune to this one. Example is missing.
+|V5.12 L1|Verify that the runtime environment is not susceptible to OS Command Injection, or that security controls prevent OS Command Injection.|-|no|We could probably handly this one quite easy using static code analysis (preventing the usage of the class Runtime?).
+|V5.14 L1|Verify that the runtime environment is not susceptible to XML Injections or that security controls prevents XML Injections.|-|no|This is primarily about the XPath injection. Could be handled with a good encoder (https://owasp-esapi-java.googlecode.com/svn/ trunk_doc/latest/org/owasp/esapi/Encoder.html)
+|====================
+
+
+
+= A2 Broken Authentication and Session Management 
+
+Application functions related to authentication and session management are often not implemented correctly, allowing attackers to compromise passwords, keys, or session tokens, or to exploit other implementation flaws to assume other users’ identities.   
+
+You may be vulnerable if:  
+
+ 1. User authentication credentials aren’t protected when stored using hashing or encryption. 
+ 2. Credentials can be guessed or overwritten through weak account management functions (e.g., account creation, change password, recover password, weak session IDs). 
+ 3. Session IDs are exposed in the URL (e.g., URL rewriting). 
+ 4. Session IDs are vulnerable to session fixation attacks. 
+ 5. Session IDs don’t timeout, or user sessions or authentication tokens, particularly single sign-on (SSO) tokens, aren’t properly invalidated during logout. 
+ 6. Session IDs aren’t rotated after successful login. 
+ 7. Passwords, session IDs, and other credentials are sent over unencrypted connections.rypted connections. See A6. 
+
+
+|====================
+|V2.1 L1|Verify all pages and resources require authentication except those specifically intended to be public (Principle of complete mediation).|encrypt all channels, use a central identity management with strong password-policy|yes|This point is handled well in the documentation.
+|V2.16 L1|Verify that credentials, and all other identity information handled by the application(s), do not traverse unencrypted or weakly encrypted links.||no|No TLS in the example application present. Need for TLS not stated in the documentation.
+|V2.17 L1|Verify that the forgotten password function and other recovery paths do not reveal the current password and that the new password is not sent in clear text to the user.||well…|One of the many points that shows, that OWASP Top 10 complaince is not only about secure framework. This one is more about possible business logic flaws. It might not really belong to be a part of the OASP documentation.
+|V2.18 L1|Verify that username enumeration is not possible via login, password reset, or forgot account functionality||yes|Spring security does that automatically for us as long as we depend on him.
+|V3.1 L1|Verify that the framework’s default session management control implementation is used by the application.||yes|Spring security does that automatically for us as long as we depend on him.
+|V3.2 L1|Verify that sessions are invalidated when the user logs out.||yes|Spring security does that automatically for us as long as we depend on him.
+|V3.14 L1|Verify that authenticated session tokens using cookies sent via HTTP, are protected by the use of "HttpOnly".||yes|Nice secure default of the tomcat container.
+|V3.15 L1|Verify that authenticated session tokens using cookies are protected with the "secure" attribute and a strict transport security header (such as StrictTransport-Security: max-age=60000; includeSubDomains) are present.||no|No TLS = no scure flag. HSTS is another topic where good examples could be helpful.
+|V2.12 L2|Verify that all authentication decisions are logged. This should include requests with missing required information, needed for security investigations.||no|These things are a bit less common then the others, but they show that authentication and session management issues can go deep. 
+|V2.20 L2|Verify that a resource governor is in place to protect against vertical (a single account tested against all possible passwords) and horizontal brute forcing (all accounts tested with the same password e.g. “Password1”). A correct credential entry should incur no delay. Both these governor mechanisms should be active simultaneously to protect against  diagonal and distributed attacks.||no|
+|V2.25 L2|Verify that the system can be configured to disallow the use of a configurable number of previous passwords.||no|
+|====================
+
+
+= A3 Cross-Site Scripting (XSS)
+
+XSS flaws occur whenever an application takes untrusted data and sends it to a web browser without proper validation or escaping. XSS allows attackers to execute scripts in the victim’s browser which can hijack user sessions, deface web sites, or redirect the user to malicious sites. 
+
+|====================
+|V5.16 L1|Verify that all untrusted data that are output to HTML (including HTML elements, HTML attributes, JavaScript data values, CSS blocks, and URI atributes) are properly escaped for the applicable context|-|no|AngularJS makes it hard for developers to make XXS mistakes. Still possibilities exist: https://code.google.com/p/mustache-security/wiki/AngularJS. JQuery can also lead to problems.  The security we have is probably pretty good. Yet at least a list of dos and don'ts is missing.
+|====================
+
+= A4 Insecure Direct Object References
+
+A direct object reference occurs when a developer exposes a reference to an internal implementation object, such as a file, directory, or database key. Without an access control check or other protection, attackers can manipulate these references to access unauthorized data. 
+
+|====================
+|V4.4 L1|Verify that direct object references are protected, such that only authorized objects or data are accessible to each user (for example, protect against direct object reference tampering).|-|no|The topic is not well covered in the documentation but still we will not have problems at this point. We usually have secure direct object references which are ok.
+|====================
+
+
+= A5 Security Misconfiguration
+
+Good security requires having a secure configuration defined and deployed for the application, frameworks, application server, web server, database server, and platform. Secure settings should be defined, implemented, and maintained, as defaults are often insecure. Additionally, software should be kept up to date. 
+
+|====================
+|V19.1 L1 (v3.0)|All components should be up to date with proper security configuration(s) and version(s). This should include unneeded configurations and folders (sample applications).|Use OASP application template and guides to avoid|No|Using some kind of application template is not enough. This is a hard feature for architects to deal with, because it's more about ITSec, then AppSec. This point is about server hardening. Look at this to get a bigger picture: https://benchmarks.cisecurity.org/tools2/apache/CIS_Apache_Tomcat_Benchmark_v1.0.0.pdf
+|====================
+
+
+= A6 Sensitive Data Exposure 
+
+Many web applications do not properly protect sensitive data, such as credit cards, tax IDs, and authentication credentials. Attackers may steal or modify such weakly protected data to conduct credit card fraud, identity theft, or other crimes. Sensitive data deserves extra protection such as encryption at rest or in transit, as well as special precautions when exchanged with the browser.
+
+|====================
+|V2.16 L1|Verify that credentials, and all other identity information handled by the application(s), do not traverse unencrypted or weakly encrypted links.|-|No|The example application is not using TLS. The documentation does not describe the need for TLS. Spring Security should be configured to always redirect the connection to a TLS secured one.
+|V10.3 L1|Verify that TLS is used for all connections (including both external and backend connections) that are authenticated or that involve sensitive data or functions.|-|No|
+|V2.21 L2|Verify that all authentication credentials for accessing services external to the application are encrypted and stored in a protected location (not in source code)|-|No|There is a lot of discussion going on between security officers and architects about this one. Still it is a common security requirement to find.
+|V2.13 L2|Verify that account passwords are salted using a salt that is unique to that account (e.g., internal user ID, account creation) and use bcrypt, scrypt or PBKDF2 before storing the password.|-|No|This is an elementary solution for local user authentication. Good code examples are necessary. Example application could handle this one aswell.
+|====================
+
+
+= A7 Missing Function Level Access Control
+
+Most web applications verify function level access rights before making that functionality visible in the UI. However, applications need to perform the same access control checks on the server when each function is accessed. If requests are not verified, attackers will be able to forge requests in order to access functionality without proper authorization.
+
+|====================
+|V4.1 L1|Verify that users can only access secured functions or services for which they possess specific authorization.|Ensure proper authorization for all use-cases, use @DenyAll als default to enforce|yes|
+|V4.2 L1|Verify that users can only access secured URLs for which they possess specific authorization.||yes|
+|V4.3 L1|Verify that users can only access secured data files for which they possess specific authorization.||no|I wouldn't know how to handle this one based on the documentation and examples.
+|====================
+
+
+
+= A8 Cross-Site Request Forgery (CSRF)
+
+A CSRF attack forces a logged-on victim’s browser to send a forged HTTP request, including the victim’s session cookie and any other automatically included authentication information, to a vulnerable web application. This allows the attacker to force the victim’s browser to generate requests the vulnerable application thinks are legitimate requests from the victim. 
+
+|====================
+|V4.16 L1|Verify that the application or framework generates strong random anti-CSRF tokens unique to the user as part of all high value transactions or accessing sensitive data, and that the application verifies the presence of this token with the proper value for the current user when processing these requests.|Short capitel 3.2.6. Beautiful implementation in the example application for SPA/RIA.|yes|Does it make sense to create another example for a non-SPA appliction or application that can not use JavaScript? 
+|====================
+
+= A9 Using Components with Known Vulnerabilities
+
+Components, such as libraries, frameworks, and other software modules, almost always run with full privileges. If a vulnerable component is exploited, such an attack can facilitate serious data loss or server takeover. Applications using components with known vulnerabilities may undermine application defenses and enable a range of possible attacks and impacts. 
+
+
+|====================
+|V19.1 L1 (v3.0)|All components should be up to date with proper security configuration(s) and version(s). This should include unneeded configurations and folders (sample applications).|subscribe to security newsletters, recheck products and their versions continuously, use OASP dependency management|no|Redirecting people to CSV lists does not solve the problem here. Automated solutions like integration with Victims or OWASP Dependency Check is needed.
+|====================
+
+
+= A10 Unvalidated Redirects and Forwards
+
+Web applications frequently redirect and forward users to other pages and websites, and use untrusted data to determine the destination pages. Without proper validation, attackers can redirect victims to phishing or malware sites, or use forwards to access unauthorized pages. 
+
+|====================
+|V16.1|Verify that URL redirects and forwards do not include unvalidated data.|"OASP proposes to use richclients (SPA/RIA). We only use redirects for login in a safe way"|yes|We don't usually need this kind of functionality.
+|====================

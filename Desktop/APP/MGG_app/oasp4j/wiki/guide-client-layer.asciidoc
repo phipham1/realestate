@@ -1,0 +1,13 @@
+:toc: macro
+toc::[]
+
+= Client Layer
+
+There are various technical approaches to build GUI clients. The OASP proposes rich clients that connect to the server via data-oriented link:guide-service-layer[services] (e.g. using REST with JSON).
+In general we have to distinguish the following types of clients:
+
+* web clients
+* native desktop clients
+* (native) mobile clients
+
+Currently we focus on web-clients. So far we offer a responsive Java Script based client provided by OASP4js that integrates seamless with OASP-server. A separate guide is provided for https://github.com/oasp/oasp4js[OASP4JS].

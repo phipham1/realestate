@@ -1,0 +1,114 @@
+:toc: macro
+toc::[]
+
+= Testing
+
+== General best practices
+For testing please follow our general best practices:
+
+* Tests should have a clear goal that should also be documented.
+* Tests have to be classified into different xref:integration-levels[integration levels].
+* Tests should follow a clear naming convention.
+* Automated tests need to properly assert the result of the tested operation(s) in a reliable way. E.g. avoid stuff like +assertEquals(42, service.getAllEntities())+ or even worse tests that have no assertion at all (might still be reasonable to test that an entire configuration setup such as spring config of application is intact).
+* Tests need to be independent of each other. Never write test-cases or tests (in Java +@Test+ methods) that depend on another test to be executed before. 
+* *Use assert frameworks* like http://joel-costigliola.github.io/assertj/[AssertJ] to write good readable and maintainable tests that also provide out-of-the-box good failure reports in case a test fails.
+* Plan your tests and test data management properly before implementing.
+* Instead of having a too strong focus on test coverage better ensure you have covered your critical core functionality properly and review the code including tests.
+* Test code shall NOT be seen as second class code. You shall consider design, architecture and code-style also for your test code but do not over-engineer it.
+* Test automation is good but should be considered in relation to cost per use. Creating full coverage via _automated system tests_ can cause a massive amount of test-code that can turn out as a huge maintenance hell. Always consider all aspects including product life-cycle, criticality of use-cases to test, and variability of the aspect to test (e.g. UI, test-data).
+* Use continuous integration and establish that the entire team wants to have clean builds and running tests.
+* *Do not use inheritance for cross-cutting testing functionality*: Sometimes cross-cutting functionality like opening/closing a database connection or code to fill a database with test data is put in a common parent class like +AbstractTestCase+ that all test classes need to inherit from. Starting with some functions this classes tend to grow up to the point where they become real maintenance nightmares. Good places to put this needed kind of code can be realized using JUnit +@Rule+ mechanism. In general favor delegation over inheritance. There are reasons why frameworks like JEE or JUnit do not use inheritance for technical features - and for the same reasons also project test frameworks should not do it.
+
+== Test Automation Technology Stack
+For test automation we use http://junit.org/[JUnit]. However, we are strictly doing all assertions with http://joel-costigliola.github.io/assertj/[AssertJ]. For xref:test-doubles[mocking] we use http://mockito.org/[mockito].
+In order to mock remote connections we use http://wiremock.org/[wiremock].
+For testing entire components or integrations we recommend to use http://docs.spring.io/spring/docs/current/spring-framework-reference/html/testing.html#integration-testing[spring-test]. 
+
+== Test Doubles
+Due to the non-consistent use and understanding of mocks/stubs/fakes/dummies for any kind of interface for testing purposes, we shortly want to give a common understanding about the different types of test doubles. Therefore we mainly stick on Gerard Meszaros's definitions, who also introduced the term http://xunitpatterns.com/Using%20Test%20Doubles.html[test doubles] as generic term for mocks/stubs/fakes/dummies/spys. Another interesting discussion about http://martinfowler.com/articles/mocksArentStubs.html[stubs VS mocks] has been published by Martin Fowler, which focuses more on the differences between stubs and mocks. A short summary (by Martin Fowler):
+
+* **Dummy** objects are passed around but never actually used. Usually they are just used to fill parameter lists.
+* **Fake** objects actually have working implementations, but usually take some shortcut which makes them not suitable for production (an in memory database is a good example).
+* **Stubs** provide canned answers to calls made during the test, usually not responding at all to anything outside what's programmed in for the test. Stubs may also record information about calls, such as an email gateway stub that remembers the messages it 'sent', or maybe only how many messages it 'sent'.
+* **Mocks** are objects pre-programmed with expectations, which form a specification of the calls they are expected to receive.
+
+What both authors do not cover is the applicability of the different concepts. We try to give some examples, which should make it somehow clearer:
+
+=== Stubs
+Best Practices for applications:
+
+* A good way to replace small to medium large boundary systems, whose impact (e.g. latency) should be ignored during performing load and performance tests of the application under development.
+* As stub implementation will rely on state-based verification, there is the threat, that test developers will partially reimplement the state transitions based on the replaced code. This will immediately lead to a black maintenance whole, so better use mocks to assure the certain behavior on interface level.
+* Do NOT use stubs as basis of a large amount of test cases as due to state-based verification of stubs, test developers will enrich the stub implementation to become a large monster with its own hunger after maintenance efforts.
+
+
+=== Mocks
+Best Practices for applications:
+
+* Replace not-needed dependencies of your system-under-test (SUT) to minimize the application context to start of your component framework.
+* Replace dependencies of your SUT to impact the control flow under test without establishing all the context parameters needed to match the control flow.
+* Remember: Not everything has to be mocked! Especially on lower levels of tests like xref:isolated-module-test (Level 1)[isolated module tests] you can be betrayed into a mocking delusion, where you end up in a hundred lines of code mocking the whole context and five lines executing the test and verifying the mocks behavior. Always keep in mind the benefit-cost ratio, when implementing tests using mocks.
+
+== Integration Levels
+There are many discussions about the right level of integration for test automation. Sometimes it is better to focus on small, isolated modules of the system - whatever a "module" may be. In other cases it makes more sense to test integrated groups of modules. Because there is no universal answer to this question, OASP only defines a common terminology for what could be tested. Each project must make its own decision where to put the focus of test automation. There is no worldwide accepted terminology for the integration levels of testing. In general we
+we consider http://istqbexamcertification.com/what-are-software-testing-levels/[ISTQB]. However, with a technical focus on test automation we want to get more precise.
+
+The following picture shows a simplified view of an application based on the https://github.com/oasp/oasp4j/wiki/architecture#technical-architecture[OASP reference architecture]. We define four integration levels that are explained in detail below. 
+The boxes in the picture contain parenthesized numbers. These numbers depict the lowest integration level, a box belongs to. Higher integration levels also contain all boxes of lower integration levels. When writing tests for a given integration level, related boxes with a lower integration level must be replaced by test xref:test-doubles[doubles] or drivers.
+
+image::images/integration-levels.png[Integration Levels, width="450"]
+
+The main difference between the integration levels is the amount of infrastructure needed to test them. The more infrastructure you need, the more bugs you will find, but the more instable and the slower your tests will be. So each project has to make a trade-off between pros and contras of including much infrastructure in tests and has to select the integration levels that fit best to the project. 
+
+Consider, that more infrastructure does not automatically lead to a better bug-detection. There may be bugs in your software that are masked by bugs in the infrastructure. The best way to find those bugs is to test with very few infrastructure.
+
+External systems do not belong to any of the integration levels defined here. OASP does not recommend involving real external systems in test automation. This means, they have to be replaced by test xref:test-doubles[doubles] in automated tests. An exception may be external systems that are fully under control of the own development team.
+
+The following chapters describe the four integration levels.
+
+=== Level 1 Module Test
+The goal of a _isolated module test_ is to provide fast feedback to the developer. Consequently, isolated module tests must not have any interaction with the client, the database, the file system, the network, etc.
+
+An isolated module test is testing a single classes or at least a small set of classes in isolation. If such classes depend on other components or external resources, etc. these shall be replaced with a xref:test-doubles[test double].
+
+For an example see https://github.com/oasp/oasp4j/blob/develop/oasp4j-modules/oasp4j-rest/src/test/java/io/oasp/module/rest/service/impl/RestServiceExceptionFacadeTest.java[here].
+
+=== Level 2 Component Test
+
+A http://istqbexamcertification.com/what-is-component-testing/[_component test_] aims to test components or component parts as a unit.
+These tests typically run with a (light-weight) infrastructure such as spring-test and can access resources such as a database (e.g. for DAO tests).
+Further, no remote communication is intended here. Access to external systems shall be replaced by a xref:test-doubles[test double].
+
+=== Level 3 Subsystem Test
+A _subsystem test_ runs against the external interfaces (e.g. HTTP service) of the integrated subsystem. In OASP4J the server (JEE application) is the subsystem under test. The tests act as a client (e.g. service consumer) and the server has to be integrated and started in a container.
+
+Subsystem tests of the client subsystem are described in the https://github.com/oasp/oasp4js/wiki/testing[OASP4JS-Wiki].
+
+If you are using spring-boot, you should use ```spring-test``` as leightweight and fast testing infrastructure that is already shipped with ```oasp4j-test```. In case you have to use a full blown JEE application server, we recommend to use http://arquillian.org/[arquillian].
+To get started look http://arquillian.org/guides/getting_started/index.html#add_the_arquillian_apis[here].
+
+Do not confuse a _subsystem test_ with a http://istqbexamcertification.com/what-is-system-integration-testing/[system integration test]. A system integration test validates the interaction of several systems where we do not recommend test automation.
+
+=== Level 4 System Test
+A http://istqbexamcertification.com/what-is-system-testing/[_system test_] has the goal to test the system as a whole against its official interfaces such as its UI or batches. The system itself runs as a separate process in a way close to a regular deployment. Only external systems are simulated by xref:test-doubles[test doubles]. 
+
+The OASP does only give advices for automated system test. In nearly every project there must be manual system tests, too. This manual system tests are out of scope here.
+
+=== Classifying Integration-Levels
+OASP4J defines https://github.com/oasp/oasp4j/tree/develop/oasp4j-modules/oasp4j-test/src/main/java/io/oasp/module/test/common/api/category[Category-Interfaces] that shall be used as https://github.com/junit-team/junit/wiki/Categories[JUnit Categories].
+Also OSAP4J provides https://github.com/oasp/oasp4j/tree/develop/oasp4j-modules/oasp4j-test/src/main/java/io/oasp/module/test/common/base[abstract base classes] that you may extend in your test-cases if you like.
+
+OASP4J further pre-configures the maven build to only run integration levels 1-2 by default (e.g. for fast feedback in continuous integration). It offers the profiles +subsystemtest+ (1-3) and +systemtest+ (1-4). In your nightly build you can simply add +-Psystemtest+ to run all tests.
+
+== Deployment Pipeline
+
+A deployment pipeline is a semi-automated process that gets software-changes from version control into production. It contains several validation steps, e.g. automated tests of all integration levels.
+Because OASP4J should fit to different project types - from agile to waterfall - it does not define a standard deployment pipeline. But we recommend to define such a deployment pipeline explicitly for each project and to find the right place in it for each type of test. 
+
+For that purpose, it is advisable to have fast running test suite that gives as much confidence as possible without needing too much time and too much infrastructure. This test suite should run in an early stage of your deployment pipeline. Maybe the developer should run it even before he/she checked in the code. Usually lower integration levels are more suitable for this test suite than higher integration levels.
+
+Note, that the deployment pipeline always should contain manual validation steps, at least manual acceptance testing. There also may be manual validation steps that have to be executed for special changes only, e.g. usability testing. Management and execution processes of those manual validation steps are currently not in the scope of OASP.
+
+
+== Test Coverage
+We are using tools (SonarQube/Jacoco) to measure the coverage of the tests. Please always keep in mind that the only reliable message of a code coverage of +X%+ is that +(100-X)%+ of the code is entirely untested. It does not say anything about the quality of the tests or the software though it often relates to it.

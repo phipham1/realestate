@@ -1,0 +1,322 @@
+## **Migration Guide from oasp4j 1.5.0 to oasp4j 2.0.0**
+
+Following are two approaches to migrate oasp4j 1.5.0 to oasp4j 2.0.0:
+
+1.	Approach 1 lists all modified, added and deleted files. You need to do corresponding changes in your existing project.
+2.	Approach 2 is creating new project with oasp4j template 2.0.0. Then copy all your business logic in newly created project.
+
+Approach 1:
+
+List of files modified added and deleted for oasp4j 2.0.0 version:
+Files modified:
+
+1.	Oasp4j-sample-core\pom.xml
+2.	Oasp4j-sample-server\pom.xml
+3.	Oasp4j-sample-server\ src\main\webapp\WEB-INF\web.xml
+	
+Files added:
+
+1.	core\src\main\java\io\oasp\gastronomy\restaurant\general\common\impl\configuration\BeansBatchConfig.java
+2.	core\src\main\java\io\oasp\gastronomy\restaurant\general\common\impl\configuration\BeansDozerConfiguration.java
+3.   core\src\main\java\io\oasp\gastronomy\restaurant\general\common\impl\configuration\DefaultRolesPrefixPostProcessor.java
+4.	core\src\main\java\io\oasp\gastronomy\restaurant\general\common\impl\configuration\ServiceConfiguration.java
+5.	core\src\main\java\io\oasp\gastronomy\restaurant\general\common\impl\configuration\WebConfig.java
+6.	core\src\main\java\io\oasp\gastronomy\restaurant\general\common\impl\configuration\WebSecurityConfig.java
+7.	core\src\main\java\io\oasp\gastronomy\restaurant\general\common\impl\security\CsrfRequestMatcher.java
+8.	core\src\main\java\io\oasp\gastronomy\restaurant\SpringBootApp.java
+
+Files Deleted:
+
+1.	core\src\main\resources\config\app\beans-application.xml
+2.	core\src\main\resources\config\app\common\beans-common.xml
+3.	core\src\main\resources\config\app\common\beans-dozer.xml
+4.	core\src\main\resources\config\app\dataaccess\beans-dataaccess.xml
+5.	core\src\main\resources\config\app\dataaccess\beans-db-plain.xml
+6.	core\src\main\resources\config\app\dataaccess\beans-db-server.xml
+7.	core\src\main\resources\config\app\dataaccess\beans-jpa.xml
+8.	core\src\main\resources\config\app\logic\beans-logic.xml
+9.	core\src\main\resources\config\app\security\beans-security-filters.xml
+10.	core\src\main\resources\config\app\security\beans-security.xml
+11.	core\src\main\resources\config\app\service\beans-monitoring.xml
+12.	core\src\main\resources\config\app\service\beans-service.xml
+
+
+
+Change detail:
+
+Oasp4j-sample-core\pom.xml
+
+a.	Add properties as below in pom.xml
+[[img-migration-guide]]
+.property1
+image::images/property1.png["property1", width="450", link="images/property1.png"]
+
+&#160; +
+b.	If you are using Spring batch add dependency as below:
+
+[source,xml]
+----
+<dependency>
+      <groupId> io.oasp.java.modules</groupId>
+      <artifactId> oasp4j-batch</artifactId>
+    </dependency>
+----
+
+c.	Add dependency for spring-batch-test
+[source,xml]
+----
+    <dependency>
+      <groupId>org.springframework.batch</groupId>
+      <artifactId>spring-batch-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>javax.el</groupId>
+      <artifactId>javax.el-api</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-jdbc</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.scala-lang</groupId>
+      <artifactId>scala-library</artifactId>
+      <version>2.10.4</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-ws</artifactId>
+    </dependency>
+----
+
+d.	Add Below plugin:
+[source,xml]
+----
+<plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <mainClass>io.oasp.gastronomy.restaurant.SpringBootApp</mainClass>
+          <layout>ZIP</layout>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+</plugins>
+----
+
+2.	If you are using Spring batch in application, add BeansBatchConfig.java file to path core\src\main\java\io\oasp\gastronomy\restaurant\general\common\impl\configuration 
+
+-	This file contains bean configuration required for batch jobs like jobrepository,joblauncher etc.
+
+3.	Add file BeansDozerConfiguration.java to path 
+core\src\main\java\io\oasp\gastronomy\restaurant\general\common\impl\configuration\BeansDozerConfiguration.java
+-	This file contain bean configuration related to dozer-mapping.xml
+
+4.	Add file DefaultRolesPrefixPostProcessor.java to path core\src\main\java\io\oasp\gastronomy\restaurant\general\common\impl\configuration\DefaultRolesPrefixPostProcessor.java
+-	This handles post processing for beans related to JSR-250.
+
+5.	Add file ServiceConfiguration.java to path core\src\main\java\io\oasp\gastronomy\restaurant\general\common\impl\configuration\ServiceConfiguration.java
+-	This file contains configuration related to rest web services.
+
+6.	Add WebConfig.java to path core\src\main\java\io\oasp\gastronomy\restaurant\general\common\impl\configuration\WebConfig.java
+-	This file registers a number of filters for web requests.
+
+7.	Add file WebSecurityConfig.java to path core\src\main\java\io\oasp\gastronomy\restaurant\general\common\impl\configuration\WebSecurityConfig.java
+-	This class provides security configuration based on WebSecurityConfigurerAdapter.
+
+8.	Add file CsrfRequestMatcher .java to path core\src\main\java\io\oasp\gastronomy\restaurant\general\common\impl\security\CsrfRequestMatcher.java
+
+9.	Add file SpringBootApp.java to path core\src\main\java\io\oasp\gastronomy\restaurant\SpringBootApp.java
+-	SpringBootApp.java is entry point for Spring boot application.
+
+10.	Delete below files:
+
+core\src\main\resources\config\app\beans-application.xml
+core\src\main\resources\config\app\common\beans-common.xml
+core\src\main\resources\config\app\common\beans-dozer.xml
+core\src\main\resources\config\app\dataaccess\beans-dataaccess.xml
+core\src\main\resources\config\app\dataaccess\beans-db-plain.xml
+core\src\main\resources\config\app\dataaccess\beans-db-server.xml
+core\src\main\resources\config\app\dataaccess\beans-jpa.xml
+core\src\main\resources\config\app\logic\beans-logic.xml
+core\src\main\resources\config\app\security\beans-security-filters.xml
+core\src\main\resources\config\app\security\beans-security.xml
+core\src\main\resources\config\app\service\beans-monitoring.xml
+core\src\main\resources\config\app\service\beans-service.xml
+
+11.	Oasp4j-sample-server\pom.xml
+a.	Add below property in pom.xml as shown in screenshot
+ 	 <properties>
+      		<java.version>1.7</java.version>
+     		 <tomcat.version>7.0.57</tomcat.version>
+  	</properties>
+	
+[[img-migration-guide]]
+.property1
+image::images/property2.png["property2", width="450", link="images/property2.png"]
+
+&#160; + 
+
+
+b.	Modify plugin section as below:
+[source,xml]
+----
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>npm-install</id>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>npm</executable>
+                  <arguments>
+                    <argument>install</argument>
+                  </arguments>
+                  <workingDirectory>${js.client.dir}</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>tsd-install</id>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>tsd</executable>
+                  <arguments>
+                    <argument>install</argument>
+                  </arguments>
+                  <workingDirectory>${js.client.dir}</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>gulp-clean</id>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>gulp</executable>
+                  <arguments>
+                    <argument>clean</argument>
+                  </arguments>
+                  <workingDirectory>${js.client.dir}</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>gulp-build</id>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>gulp</executable>
+                  <arguments>
+                    <argument>build:dist</argument>
+                  </arguments>
+                  <workingDirectory>${js.client.dir}</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>gulp-test</id>
+                <phase>test</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>gulp</executable>
+                  <arguments>
+                    <argument>test</argument>
+                  </arguments>
+                  <workingDirectory>${js.client.dir}</workingDirectory>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+----
+
+c.	Add below section to pom.xml:
+[source,xml]
+----
+  <build>
+    <resources>
+      <resource>
+        <directory>${project.basedir}/src/main/resources</directory>
+      </resource>
+      <resource>
+        <directory>${js.client.dir}/dist</directory>
+        <targetPath>static</targetPath>
+      </resource>
+    </resources>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <mainClass>io.oasp.gastronomy.restaurant.SpringBootApp</mainClass>
+          <classifier>bootified</classifier>
+          <finalName>${project.artifactId}</finalName>
+          <layout>WAR</layout>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+----
+
+12.	Remove all contents of web.xml. web.xml will look like below :
+
+[source,xml]
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns="http://java.sun.com/xml/ns/javaee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd" version="3.0">
+
+</web-app>
+----
+
+Approach 2 :
+
+1.	 Generate a new, empty, application based on the OASPJ2 archetype with the same groupId, artifactId and package names as the current version.
+
+2.	Use this application as base for the new version
+
+3.	Copy all packages files and subpackages under <base package>.general  from the current version to the new version
+
+4.	Add any other dependencies require for your project.
+
+5.	Try to execute mvn clean install command. 
+
+6.	If mvn build is successful try to test it application launching SpringBootApp.java class.

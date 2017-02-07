@@ -1,0 +1,15 @@
+io\oasp\module\jpa\common\api\to\PaginationResultTo.class
+io\oasp\module\jpa\common\api\to\SearchCriteriaTo.class
+io\oasp\module\jpa\dataaccess\api\GenericDao.class
+io\oasp\module\jpa\common\api\to\PaginatedListTo.class
+io\oasp\module\jpa\dataaccess\base\AbstractMasterDataDao.class
+io\oasp\module\jpa\dataaccess\api\MutablePersistenceEntity.class
+io\oasp\module\jpa\dataaccess\base\AbstractDao.class
+io\oasp\module\jpa\dataaccess\api\MasterDataDao.class
+io\oasp\module\jpa\common\api\to\OrderDirection.class
+io\oasp\module\jpa\dataaccess\api\Dao.class
+io\oasp\module\jpa\dataaccess\base\AbstractGenericDao.class
+io\oasp\module\jpa\dataaccess\base\NamedQueryFactoryBean.class
+io\oasp\module\jpa\dataaccess\api\AbstractPersistenceEntity.class
+io\oasp\module\jpa\common\api\to\OrderByTo.class
+io\oasp\module\jpa\common\api\to\PaginationTo.class

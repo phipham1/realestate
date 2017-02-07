@@ -1,0 +1,107 @@
+:toc: macro
+toc::[]
+
+= Configuration
+
+An application needs to be configurable in order to allow internal setup (like CDI) but also to allow externalized configuration of a deployed package (e.g. integration into runtime environment). Using http://projects.spring.io/spring-boot/[Spring Boot] (must read: http://docs.spring.io/spring-boot/docs/current-SNAPSHOT/reference/htmlsingle/#using-boot[Spring Boot reference]) we rely on a comprehensive configuration approach following a "convention over configuration" pattern. This guide adds on to this by detailed instructions and best-practices how to deal with configurations.
+
+In general we distinguish the following kinds of configuration that are explained in the following sections:
+
+* xref:internal-application-configuration[Internal Application configuration] maintained by developers
+* xref:externalized-environment-configuration[Externalized Environment configuration] maintained by operators
+* xref:business-configuration[Externalized Business configuration] maintained by business administrators
+
+== Internal Application Configuration
+The application configuration contains all internal settings and wirings of the application (bean wiring, database mappings, etc.) and is maintained by the application developers at development time. There usually is a main configuration registered with main Spring Boot App, but differing configurations to support automated test of the application can be defined using profiles (not detailed in this guide).
+
+Appetizer: The web.xml as the place for all web related configuration is not at all used anymore to configure the web app. It is empty.
+
+=== Standard beans configuration
+
+For basic bean configuration we rely on spring boot using mainly configuration classes and occasionally xml-configuration files. Some key principle to understand Spring Boot auto-configuration features:
+
+* Spring Boot auto-configuration attempts to automatically configure your Spring application based on the jar dependencies and annotated components found in your source code. 
+* Auto-configuration is noninvasive, at any point you can start to define your own configuration to replace specific parts of the auto-configuration by redefining your identically named bean.
+ 
+Beans are configured via annotations at the java-class (@Component, @Bean, @Named, etc.).
+These beans will be known when wiring the application at runtime. The required component scan is already auto-enabled within the main SpringBootApp.
+
+For beans that need separate configuration for any reason, additional Configuration Classes (using annotation @Configuration) can be used and will be automatically evaluated during application startup. 
+
+Configuration classes all reside in the folder:
+
+`src/main/general/configuration/`
+
+=== XML-based beans configuration
+It is still possible and allowed to provide (bean-) configurations using xml, though not recommended. These configuration files are no more bundled via a main xml config file but loaded individually from their respective owners, e.g. for unit-tests:
+
+[source, java]
+@SpringApplicationConfiguration(classes = { SpringBootApp.class }, locations = { "classpath:/config/app/batch/beans-productimport.xml" })
+public class ProductImportJobTest extends AbstractSpringBatchIntegrationTest {
+...
+
+Configuration XML-files reside in an adequately named subfolder of:
+
+`src/main/resources/app`
+
+=== Batch configuration
+In the directory `src/main/resources/config/app/batch` we place the configuration for the batch jobs. Each file within this directory represents one batch job.
+
+=== WebSocket configuration
+A websocket endpoint is configured within the business package as a Spring configuration class. The annotation @EnableWebSocketMessageBroker makes Spring Boot registering this endpoint.
+ 
+[source, java]
+package io.oasp.gastronomy.restaurant.salesmanagement.websocket.config;
+...
+@Configuration
+@EnableWebSocketMessageBroker
+public class WebSocketConfig extends AbstractWebSocketMessageBrokerConfigurer {
+...
+
+== Externalized Configuration
+
+Externalized configuration is a configuration that is provided separately to a deployment package and can be maintained undisturbed by redeployments.
+
+=== Environment Configuration
+
+The environment configuration contains configuration parameters (typically port numbers, host names, passwords, logins, timeouts, certificates, etc.) specific for the different environments. These are under the control of the operators responsible for the application. 
+
+The environment configuration is maintained in `application.properties` files, defining various properties. 
+These properties are explained in the corresponding configuration sections of the guides for each topic:
+
+* link:guide-dataaccess-layer#database-system-and-access[persistence configuration]
+* link:guide-service-layer#jax-rs-configuration[service configuration]
+* link:guide-logging#configuration[logging guide]
+
+There are two properties files already contained within the example server:
+
+* `src/main/resources/application.properties` providing a default configuration - bundled and deployed with the application package. It further acts as a template to derive a tailored minimal environment-specific configuration.
+* `src/main/resources/config/application.properties` providing additional properties only required at development time (for all local deployment scenarios). This property file is excluded from all packaging.
+
+Where to actually put a tailored application.properties file after deployment depends on the deployment strategy:
+
+* standalone runnable Spring Boot App using embedded tomcat: put a tailored copy of application.properties into `installpath/config/`
+* dedicated tomcat (one tomcat per app): put a tailored copy of application.properties into `tomcat/lib/config`
+* tomcat serving a number of apps (requires expanding the wars): put a tailored copy of application.properties into `tomcat/webapps/<app>/WEB-INF/classes/config`
+
+In this `application.properties` you only define the minimum properties that are environment specific and inherit everything else from the bundled `src/main/resources/application.properties`. In any case, make very sure that the classloader will find the file.
+
+Make sure your properties are thoroughly documented by providing a comment to each property. This inline documentation is most valuable for your operating department. 
+
+=== Business Configuration
+The business configuration contains all business configuration values of the application, which can be edited by administrators through the GUI. The business configuration values are stored in the database in key/value pairs.
+
+The database table `business_configuration` has the following columns:
+
+* ID
+* Property name
+* Property type (Boolean, Integer, String)
+* Property value
+* Description
+
+According to the entries in this table, the administrative GUI shows a generic form to change business configuration. The hierachy of the properties determines the place in the GUI, so the GUI bundles properties from the same hierarchy level and name. Boolean values are shown as checkboxes, integer and string values as text fields. The properties are read and saved in a typed form, an error is raised if you try to save a string in an integer property for example.
+
+We recommend the following base layout for the hierarchical business configuration:
+
+`component.[subcomponent].[subcomponent].propertyname`
+
